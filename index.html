@@ -1,0 +1,1858 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Cyber Dungeon RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    button { font: inherit; -webkit-user-select: none; user-select: none; }
+    button:focus-visible { outline: 2px solid var(--neon-yellow); outline-offset: 2px; }
+    :root {
+      --bg-dark: #06080f; --bg-panel: #0d1220;
+      --neon-cyan: #00f0ff; --neon-magenta: #ff00aa;
+      --neon-green: #39ff14; --neon-yellow: #ffe600;
+      --neon-red: #ff2244; --neon-orange: #ff8800;
+      --text-primary: #e2e8f0; --text-muted: #64748b;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    html, body {
+      height: 100%; height: 100dvh; overflow: hidden;
+      background: var(--bg-dark); color: var(--text-primary);
+      font-family: 'Share Tech Mono', monospace;
+      touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+    body { display: flex; flex-direction: column;
+      background: radial-gradient(ellipse at 50% 0%, rgba(0,240,255,0.07) 0%, transparent 55%),
+        radial-gradient(ellipse at 50% 100%, rgba(255,0,170,0.05) 0%, transparent 45%),
+        linear-gradient(rgba(0,240,255,0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,240,255,0.018) 1px, transparent 1px), var(--bg-dark);
+      background-size: auto, auto, 28px 28px, 28px 28px, auto; }
+    .loading-overlay { position: fixed; inset: 0; z-index: 999; background: var(--bg-dark);
+      display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
+    .loading-overlay.hidden { display: none; }
+    .loading-text { color: var(--neon-cyan); font-size: 0.8rem; letter-spacing: 0.14em; animation: blink 1s infinite; }
+    @keyframes blink { 50% { opacity: 0.4; } }
+    .class-overlay { display: none; position: fixed; inset: 0; z-index: 1100;
+      background: rgba(6,8,15,0.97); backdrop-filter: blur(12px);
+      align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
+    .class-overlay.active { display: flex; }
+    .class-modal { width: 100%; max-width: 420px; text-align: center; }
+    .class-title { font-size: 1.2rem; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase;
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 4px; }
+    .class-sub { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 18px; }
+    .class-cards { display: flex; flex-direction: column; gap: 10px; }
+    .class-card { display: flex; align-items: center; gap: 14px; padding: 14px;
+      background: var(--bg-panel); border: 1px solid rgba(0,240,255,0.25);
+      border-radius: 10px; cursor: pointer; text-align: left; touch-action: manipulation;
+      transition: border-color 0.2s, box-shadow 0.2s; }
+    .class-card:not(:disabled):active { border-color: var(--neon-cyan); box-shadow: 0 0 20px rgba(0,240,255,0.3); }
+    .class-card:disabled { opacity: 0.4; pointer-events: none; }
+    .class-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem; border-radius: 8px; flex-shrink: 0; }
+    .class-card.warrior .class-icon { background: rgba(255,68,102,0.15); border: 1px solid rgba(255,68,102,0.4); }
+    .class-card.mage   .class-icon { background: rgba(68,136,255,0.15); border: 1px solid rgba(68,136,255,0.4); }
+    .class-card.rogue  .class-icon { background: rgba(57,255,20,0.12);  border: 1px solid rgba(57,255,20,0.35); }
+    .class-name  { font-size: 0.9rem; font-weight: 700; margin-bottom: 3px; }
+    .class-stats { font-size: 0.65rem; color: var(--text-muted); line-height: 1.5; }
+    .class-error { display: none; margin-top: 14px; padding: 10px; border-radius: 8px;
+      font-size: 0.72rem; color: #ff6b8a;
+      background: rgba(255,34,68,0.12); border: 1px solid rgba(255,34,68,0.35); }
+    .class-error.visible { display: block; }
+    .game-ui { display: flex; flex-direction: column; flex: 1; min-height: 0;
+      width: 100%; max-width: 520px; margin: 0 auto; overflow: hidden; }
+    .game-ui.hidden { display: none; }
+    .hud-bar {
+      flex-shrink: 0; display: flex; align-items: stretch; justify-content: space-between;
+      gap: 5px; padding: 7px 8px 5px; border-bottom: 1px solid rgba(0,240,255,0.2);
+      background: rgba(13,18,32,0.92);
+    }
+    .hud-topline {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 8px 10px 7px; background: rgba(13,18,32,0.88);
+      border-bottom: 1px solid rgba(0,240,255,0.08);
+    }
+    .character-identity { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .character-avatar { width: 34px; height: 34px; display: grid; place-items: center; flex-shrink: 0;
+      border: 1px solid rgba(0,240,255,0.5); border-radius: 9px; background: rgba(0,240,255,0.1);
+      box-shadow: 0 0 14px rgba(0,240,255,0.18); font-size: 1.15rem; }
+    .identity-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .identity-kicker { color: var(--text-muted); font-size: 0.45rem; letter-spacing: 0.14em; text-transform: uppercase; }
+    .identity-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; }
+    .menu-tag {
+      font-size: 0.52rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--neon-cyan);
+      background: rgba(0,240,255,0.06); border: 1px solid rgba(0,240,255,0.2); border-radius: 999px;
+      padding: 5px 8px;
+    }
+    .settings-pill {
+      border: 1px solid rgba(255,0,170,0.3); background: rgba(255,0,170,0.06); color: var(--neon-magenta);
+      border-radius: 999px; padding: 6px 10px; font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase;
+      cursor: pointer; transition: transform 0.12s ease;
+    }
+    .settings-pill:active { transform: scale(0.96); }
+    .stat-badge { flex: 1; min-width: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1px; padding: 4px 3px;
+      background: var(--bg-panel); border-radius: 6px; font-variant-numeric: tabular-nums; }
+    .stat-badge .badge-label { font-size: 0.48rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--text-muted); }
+    .stat-badge .badge-value { font-size: 0.72rem; font-weight: 800; line-height: 1; }
+    .hp-badge { border: 1px solid rgba(255,68,102,0.55); }
+    .hp-badge .badge-value { color: #ff6688; }
+    .hp-badge .badge-row { display: flex; align-items: center; gap: 4px; }
+    .atk-badge { border: 1px solid rgba(0,240,255,0.45); }
+    .atk-badge .badge-value { color: var(--neon-cyan); }
+    .mp-badge { border: 1px solid rgba(68,136,255,0.45); }
+    .mp-badge .badge-value { color: #88aaff; }
+    .floor-badge { border: 1px solid rgba(57,255,20,0.45); }
+    .floor-badge .badge-value { color: var(--neon-green); font-size: 0.62rem; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--neon-green); box-shadow: 0 0 6px var(--neon-green); }
+    .status-dot.warn { background: var(--neon-yellow); box-shadow: 0 0 6px var(--neon-yellow); }
+    .status-dot.crit { background: var(--neon-red); box-shadow: 0 0 6px var(--neon-red); animation: blink 0.7s infinite; }
+    .hud-panels { flex-shrink: 0; display: grid; grid-template-columns: 1fr; gap: 6px; padding: 6px 8px 0; background: rgba(13,18,32,0.8); }
+    .hud-panels.has-boss { grid-template-columns: 1fr 1.15fr; }
+    .hud-panel { min-width: 0; padding: 7px 8px; border: 1px solid rgba(255,170,0,0.28); border-radius: 8px; background: rgba(0,0,0,0.24); }
+    .hud-panel-title { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 5px; color: var(--neon-yellow); font-size: 0.5rem; letter-spacing: 0.1em; text-transform: uppercase; }
+    .hud-panel-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-size: 0.58rem; }
+    .hud-panel-meta { color: var(--text-muted); font-size: 0.5rem; white-space: nowrap; }
+    .hud-progress { height: 5px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); border-radius: 3px; background: rgba(0,0,0,0.5); }
+    .hud-progress-fill { height: 100%; width: 0; transition: width 0.3s ease; }
+    .hud-quest-fill { background: linear-gradient(90deg, #b8860b, #ffe600); box-shadow: 0 0 7px rgba(255,230,0,0.35); }
+    .hud-quest.completed { border-color: rgba(57,255,20,0.5); }
+    .hud-quest.completed .hud-panel-title { color: var(--neon-green); }
+    .hud-boss { display: none; border-color: rgba(255,102,0,0.55); box-shadow: inset 0 0 14px rgba(255,80,0,0.08); }
+    .hud-boss.active { display: block; }
+    .hud-boss .hud-panel-title { color: var(--neon-orange); }
+    .hud-boss-fill { background: linear-gradient(90deg, #ff2244, #ff8800); box-shadow: 0 0 8px rgba(255,102,0,0.5); }
+    .map-section { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 6px 8px; overflow: hidden; gap: 8px; }
+    .canvas-frame { width: 100%; max-width: 100%; display: flex; align-items: center; justify-content: center;
+      border: 2px solid rgba(0,240,255,0.35); border-radius: 12px;
+      box-shadow: 0 0 28px rgba(0,240,255,0.12), inset 0 0 30px rgba(0,0,0,0.5);
+      background: #05080f; padding: 3px; position: relative; overflow: hidden; }
+    .canvas-frame::before {
+      content: ''; position: absolute; inset: 4px; border-radius: 10px; border: 1px solid rgba(0,240,255,0.12); pointer-events: none;
+    }
+    .canvas-frame::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 52%, rgba(0,0,0,0.42) 100%); }
+    #gameCanvas { display: block; max-width: 100%; image-rendering: pixelated; border-radius: 8px; }
+    .minimap-panel {
+      width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      background: rgba(13,18,32,0.85); border: 1px solid rgba(57,255,20,0.22); border-radius: 10px;
+      padding: 7px 8px; box-shadow: inset 0 0 18px rgba(0,0,0,0.25);
+    }
+    .mini-label {
+      font-size: 0.48rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--neon-green);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .mini-legend {
+      display: flex; align-items: center; gap: 5px; font-size: 0.55rem; color: var(--text-muted);
+    }
+    .legend-dot {
+      width: 7px; height: 7px; border-radius: 50%; display: inline-block;
+    }
+    #minimapCanvas {
+      width: 90px; height: 90px; border-radius: 8px; border: 1px solid rgba(57,255,20,0.32);
+      background: rgba(0,0,0,0.4); image-rendering: pixelated; flex-shrink: 0;
+    }
+    .canvas-frame.shake { animation: screenShake 0.25s ease; }
+    @keyframes screenShake {
+      0% { transform: translate(0,0); } 15% { transform: translate(-4px,-3px); }
+      30% { transform: translate(4px,3px); } 50% { transform: translate(-3px,4px); }
+      70% { transform: translate(3px,-2px); } 90% { transform: translate(-2px,2px); }
+      100% { transform: translate(0,0); } }
+    .log-section { flex-shrink: 0; margin: 0 8px 5px;
+      border: 1px solid rgba(255,0,170,0.3); border-radius: 8px;
+      background: rgba(0,0,0,0.5); overflow: hidden; }
+    .log-header { padding: 4px 10px; font-size: 0.55rem; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--neon-magenta);
+      border-bottom: 1px solid rgba(255,0,170,0.2); background: rgba(255,0,170,0.05); }
+    .combat-log { height: 68px; overflow-y: auto; padding: 6px 10px;
+      font-family: 'Share Tech Mono', monospace; font-size: 0.64rem; line-height: 1.65;
+      -webkit-overflow-scrolling: touch; }
+    .log-entry { padding: 1px 0; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+    .log-time { color: var(--neon-cyan); }
+    .log-msg.info   { color: var(--text-muted); }
+    .log-msg.combat { color: #ff6688; }
+    .log-msg.gold   { color: var(--neon-yellow); }
+    .log-msg.exp    { color: var(--neon-green); }
+    .log-msg.magic  { color: #ff8800; }
+    .log-msg.quest  { color: var(--neon-green); font-weight: 700; }
+    .log-msg.item   { color: #cc88ff; }
+    .controls-section { flex-shrink: 0; padding: 4px 8px calc(8px + var(--safe-bottom));
+      display: grid; grid-template-columns: 148px 1fr; align-items: center; gap: 8px;
+      border-top: 1px solid rgba(0,240,255,0.12); background: rgba(13,18,32,0.95); }
+    .dpad-row { display: flex; align-items: center; justify-content: center; }
+    .dpad { display: grid; grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(3, 48px);
+      gap: 4px; touch-action: none; user-select: none; }
+    .dpad-btn { display: flex; align-items: center; justify-content: center;
+      background: rgba(0,240,255,0.06); border: 1px solid rgba(0,240,255,0.3);
+      border-radius: 10px; color: var(--neon-cyan); font-size: 1.1rem;
+      cursor: pointer; touch-action: none; transition: background 0.08s, transform 0.07s; }
+    .dpad-btn:active, .dpad-btn.pressed { background: rgba(0,240,255,0.22); transform: scale(0.91);
+      box-shadow: 0 0 14px rgba(0,240,255,0.4); }
+    .dpad-btn.up    { grid-column:2; grid-row:1; }
+    .dpad-btn.left  { grid-column:1; grid-row:2; }
+    .dpad-btn.center{ grid-column:2; grid-row:2; font-size:0.45rem; font-weight:700;
+      color:var(--neon-magenta); background:rgba(255,0,170,0.06); border-color:rgba(255,0,170,0.25); cursor:default; }
+    .dpad-btn.right { grid-column:3; grid-row:2; }
+    .dpad-btn.down  { grid-column:2; grid-row:3; }
+    .action-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .action-btn { min-height: 62px; padding: 8px 4px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 2px; border-radius: 10px; cursor: pointer; touch-action: none;
+      font-size: 0.55rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase;
+      transition: transform 0.07s, opacity 0.12s; }
+    .action-btn:active:not(:disabled) { transform: scale(0.93); }
+    .action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .action-btn .action-icon { font-size: 1.15rem; line-height: 1; }
+    .action-btn.attack { color: #ff8800; background: rgba(255,120,0,0.1); border: 1px solid rgba(255,120,0,0.45); }
+    .action-btn.status { color: var(--neon-cyan); background: rgba(0,240,255,0.07); border: 1px solid rgba(0,240,255,0.4); }
+    .action-btn.shop   { color: var(--neon-green); background: rgba(57,255,20,0.07); border: 1px solid rgba(57,255,20,0.4); }
+    @media (max-height: 680px) {
+      .map-section { gap: 5px; padding-top: 4px; }
+      .minimap-panel { padding: 4px 8px; }
+      #minimapCanvas { width: 72px; height: 72px; }
+      .combat-log { height: 52px; }
+      .controls-section { padding-top: 3px; }
+      .action-btn { min-height: 54px; }
+    }
+    @media (max-width: 360px) {
+      .controls-section { grid-template-columns: 140px 1fr; gap: 5px; padding-left: 5px; padding-right: 5px; }
+      .dpad { grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); gap: 3px; }
+      .action-row { gap: 4px; }
+      .action-btn { font-size: 0.5rem; }
+      .action-btn .action-icon { font-size: 1rem; }
+    }
+    .status-overlay, .shop-overlay, .game-over-overlay, .victory-overlay {
+      display: none; position: fixed; inset: 0; z-index: 900;
+      background: rgba(6,8,15,0.92); backdrop-filter: blur(10px);
+      align-items: flex-start; justify-content: center; padding: 12px; overflow-y: auto; }
+    .status-overlay.active, .shop-overlay.active, .game-over-overlay.active, .victory-overlay.active { display: flex; }
+    .modal-panel { width: 100%; max-width: 380px; margin-top: 8px;
+      background: var(--bg-panel); border-radius: 12px; padding: 16px; position: relative; }
+    .status-overlay .modal-panel { border: 1px solid rgba(0,240,255,0.4); box-shadow: 0 0 30px rgba(0,240,255,0.1); }
+    .shop-overlay   .modal-panel { border: 1px solid rgba(57,255,20,0.4); box-shadow: 0 0 30px rgba(57,255,20,0.1); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .modal-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+    .status-overlay .modal-title { color: var(--neon-cyan); }
+    .shop-overlay   .modal-title { color: var(--neon-green); }
+    .modal-close { background: none; border: 1px solid rgba(255,68,102,0.4); color: #ff6688;
+      width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+    .detail-row { display: flex; justify-content: space-between; align-items: center;
+      padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.73rem; }
+    .detail-label { color: var(--text-muted); font-size: 0.66rem; }
+    .detail-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .bar-wrap { margin: 7px 0; }
+    .bar-label { display: flex; justify-content: space-between; font-size: 0.6rem; color: var(--text-muted); margin-bottom: 3px; }
+    .bar-bg { height: 6px; background: rgba(0,0,0,0.4); border-radius: 3px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
+    .bar-fill { height: 100%; transition: width 0.3s; }
+    .mp-fill  { background: linear-gradient(90deg, #1a4a8f, #4488ff); box-shadow: 0 0 6px rgba(68,136,255,0.4); }
+    .exp-fill { background: linear-gradient(90deg, #1a8f00, var(--neon-green)); box-shadow: 0 0 6px rgba(57,255,20,0.4); }
+    .quest-fill { background: linear-gradient(90deg, #b8860b, #ffaa00); }
+    .section-title { font-size: 0.6rem; color: var(--text-muted); letter-spacing: 0.1em;
+      text-transform: uppercase; margin: 12px 0 6px;
+      border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 4px; }
+    .equip-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .equip-slot { display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; padding: 8px 6px; border-radius: 8px; min-height: 68px;
+      border: 1px dashed rgba(255,255,255,0.15); background: rgba(0,0,0,0.25);
+      font-size: 0.6rem; text-align: center; cursor: pointer; transition: border-color 0.2s; }
+    .equip-slot:active { border-color: var(--neon-magenta); }
+    .equip-slot.has-item { border-style: solid; }
+    .equip-slot.weapon    { border-color: rgba(255,120,0,0.5); }
+    .equip-slot.armor     { border-color: rgba(0,240,255,0.4); }
+    .equip-slot.accessory { border-color: rgba(170,68,255,0.5); }
+    .equip-slot .slot-icon { font-size: 1.3rem; line-height: 1; }
+    .equip-slot .slot-label { color: var(--text-muted); font-size: 0.5rem; }
+    .equip-slot .slot-name  { color: var(--text-primary); font-size: 0.58rem; font-weight: 700; word-break: break-word; }
+    .equip-slot .slot-stats { color: var(--neon-green); font-size: 0.52rem; }
+    .rarity-common    { color: #a0aec0; }
+    .rarity-uncommon  { color: var(--neon-green); }
+    .rarity-rare      { color: #88aaff; }
+    .rarity-legendary { color: #ffaa00; text-shadow: 0 0 8px rgba(255,170,0,0.7); }
+    .inv-grid { display: flex; flex-direction: column; gap: 5px; }
+    .inv-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px;
+      border-radius: 7px; background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.08); font-size: 0.7rem; cursor: pointer;
+      transition: border-color 0.15s; }
+    .inv-item:active { border-color: var(--neon-cyan); }
+    .inv-item .inv-icon  { font-size: 1.1rem; flex-shrink: 0; }
+    .inv-item .inv-name  { flex: 1; font-weight: 600; }
+    .inv-item .inv-stats { font-size: 0.58rem; color: var(--neon-green); }
+    .inv-item .inv-equip-btn { flex-shrink: 0; padding: 3px 8px; font-size: 0.55rem; font-weight: 700;
+      border-radius: 5px; border: none; cursor: pointer;
+      background: rgba(0,240,255,0.15); color: var(--neon-cyan); letter-spacing: 0.06em; }
+    .inv-empty { color: var(--text-muted); font-size: 0.68rem; text-align: center; padding: 10px; }
+    .quest-block { margin-top: 10px; padding: 10px; border: 1px solid rgba(255,170,0,0.25);
+      border-radius: 8px; background: rgba(0,0,0,0.25); }
+    .quest-block.completed { border-color: rgba(57,255,20,0.4); }
+    .quest-block-title { font-size: 0.6rem; color: var(--neon-yellow); letter-spacing: 0.1em; margin-bottom: 6px; }
+    .shop-item { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 10px; margin-bottom: 8px; background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(57,255,20,0.2); border-radius: 8px; }
+    .shop-item-name { font-size: 0.78rem; font-weight: 600; }
+    .shop-item-desc { font-size: 0.62rem; color: var(--text-muted); margin-top: 2px; }
+    .shop-buy-btn { flex-shrink: 0; padding: 8px 12px; font-size: 0.62rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--bg-dark);
+      background: linear-gradient(135deg, var(--neon-green), #1a8f00);
+      border: none; border-radius: 6px; cursor: pointer; }
+    .shop-buy-btn:disabled { opacity: 0.4; pointer-events: none; }
+    .game-over-title { font-size: clamp(1.8rem,9vw,3rem); font-weight: 900; letter-spacing: 0.18em;
+      color: var(--neon-red); text-shadow: 0 0 20px rgba(255,34,68,0.7);
+      text-align: center; margin-bottom: 10px; }
+    .restart-btn { display: block; margin: 14px auto 0; padding: 12px 28px;
+      font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bg-dark);
+      background: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta));
+      border: none; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+    /* Victory Screen */
+    .victory-overlay .modal-panel {
+      border: 2px solid #ffaa00; box-shadow: 0 0 60px rgba(255,170,0,0.5), 0 0 30px rgba(255,100,0,0.4);
+      background: linear-gradient(160deg, #0d0800, #1a0e00, #0d0800); text-align: center; }
+    .victory-title { font-size: clamp(2rem,10vw,3.5rem); font-weight: 900; letter-spacing: 0.2em;
+      background: linear-gradient(90deg, #ffaa00, #ff6600, #ffdd00, #ff6600, #ffaa00);
+      background-size: 200%;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      animation: victoryShine 2s linear infinite; margin-bottom: 8px; }
+    @keyframes victoryShine { 0% { background-position: 0%; } 100% { background-position: 200%; } }
+    .victory-sub { font-size: 0.8rem; color: #ffcc88; margin-bottom: 14px; letter-spacing: 0.08em; }
+    .victory-stats { background: rgba(255,170,0,0.08); border: 1px solid rgba(255,170,0,0.3);
+      border-radius: 8px; padding: 12px; margin-bottom: 14px; }
+    .victory-stat-row { display: flex; justify-content: space-between; padding: 4px 0;
+      font-size: 0.72rem; border-bottom: 1px solid rgba(255,170,0,0.1); }
+    .victory-stat-row:last-child { border-bottom: none; }
+    .victory-stat-label { color: #cc9944; }
+    .victory-stat-val { color: #ffdd88; font-weight: 700; }
+    .surface-btn { display: block; margin: 0 auto; padding: 14px 32px;
+      font-weight: 900; letter-spacing: 0.14em; text-transform: uppercase;
+      color: #0d0800; background: linear-gradient(135deg, #ffaa00, #ff6600, #ffdd00);
+      border: none; border-radius: 10px; cursor: pointer; font-size: 0.9rem;
+      box-shadow: 0 0 30px rgba(255,150,0,0.6); animation: pulseGold 1.5s ease-in-out infinite; }
+    @keyframes pulseGold {
+      0%, 100% { box-shadow: 0 0 20px rgba(255,150,0,0.5); }
+      50% { box-shadow: 0 0 40px rgba(255,200,0,0.9); } }
+    .floor-notif { position: fixed; top: 60px; left: 50%; transform: translateX(-50%) translateY(-20px);
+      z-index: 800; background: rgba(6,8,15,0.95); border: 1px solid var(--neon-green);
+      border-radius: 8px; padding: 8px 20px; font-size: 0.8rem; font-weight: 700;
+      color: var(--neon-green); letter-spacing: 0.1em;
+      box-shadow: 0 0 20px rgba(57,255,20,0.4);
+      opacity: 0; transition: opacity 0.4s, transform 0.4s; pointer-events: none; }
+    .floor-notif.boss { border-color: #ff6600; color: #ff8800; box-shadow: 0 0 30px rgba(255,100,0,0.6); }
+    .floor-notif.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    /* Pixel dungeon skin */
+    :root {
+      --bg-dark: #120e12; --bg-panel: #21171b;
+      --neon-cyan: #f0c36a; --neon-magenta: #d86455;
+      --neon-green: #9ecb70; --neon-yellow: #ffd166;
+      --neon-red: #d94f4f; --neon-orange: #e38b4b;
+      --text-primary: #f4e7ce; --text-muted: #a28d79;
+    }
+    html, body { background: #120e12; }
+    body { background: linear-gradient(135deg, #120e12 0%, #1b1316 50%, #0e0b0d 100%); }
+    .hud-topline, .hud-bar, .hud-panels, .controls-section { background: #21171b; }
+    .hud-topline, .hud-bar, .hud-panels, .map-section, .log-section, .controls-section { border-color: #5d4035; }
+    .hud-topline, .hud-bar, .hud-panel, .minimap-panel, .log-section, .controls-section,
+    .canvas-frame, .stat-badge, .class-card, .modal-panel, .quest-block, .shop-item,
+    .action-btn, .dpad-btn, .settings-pill, .menu-tag { border-radius: 0 !important; }
+    .hud-topline, .hud-panel-title, .hud-panel-value, .badge-label, .badge-value,
+    .menu-tag, .settings-pill, .log-header, .action-btn, .modal-title, .section-title,
+    .class-title, .class-name, .quest-block-title { font-family: 'Press Start 2P', monospace; }
+    .hud-topline { padding-top: 10px; }
+    .character-avatar { border-radius: 0 !important; border-color: #f0c36a; box-shadow: 3px 3px 0 #0a0809; }
+    .menu-tag, .settings-pill { border-color: #8e5b42; background: #2d1d20; color: #ffd166; }
+    .stat-badge, .hud-panel { background: #2a1c20; box-shadow: 3px 3px 0 #0a0809; }
+    .canvas-frame { border: 3px solid #8e5b42; box-shadow: 4px 4px 0 #0a0809; background: #0d0a0b; }
+    .canvas-frame::before { border-radius: 0; border-color: rgba(255,209,102,0.16); }
+    .canvas-frame::after { display: none; }
+    .minimap-panel { background: #21171b; box-shadow: 3px 3px 0 #0a0809; }
+    #minimapCanvas { border-radius: 0; border-color: #8e5b42; }
+    .log-section { background: #170f13; box-shadow: 3px 3px 0 #0a0809; }
+    .dpad-btn, .action-btn { box-shadow: 3px 3px 0 #0a0809; }
+    .dpad-btn:active, .dpad-btn.pressed, .action-btn:active:not(:disabled) { box-shadow: 1px 1px 0 #0a0809; }
+    .class-card, .modal-panel { box-shadow: 5px 5px 0 #0a0809; }
+    .floor-notif { border-radius: 0; background: #21171b; box-shadow: 4px 4px 0 #0a0809; }
+  </style>
+</head>
+<body>
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-text">DUNGEON INITIALIZING...</div>
+  </div>
+  <div class="floor-notif" id="floorNotif"></div>
+  <div class="class-overlay" id="classOverlay">
+    <div class="class-modal">
+      <div class="class-title">CYBER DUNGEON</div>
+      <p class="class-sub">Sınıfını seç, zindanı fethet, boss katına ilerle ve neon dungeon’ı temizle.</p>
+      <div class="class-cards">
+        <button type="button" class="class-card warrior" data-class="Warrior" disabled>
+          <div class="class-icon">&#x2694;&#xFE0F;</div>
+          <div><div class="class-name">Warrior</div><div class="class-stats">HP 150 - ATK 12 - MP 20 - Yuksek savunma</div></div>
+        </button>
+        <button type="button" class="class-card mage" data-class="Mage" disabled>
+          <div class="class-icon">&#x1F52E;</div>
+          <div><div class="class-name">Mage</div><div class="class-stats">HP 80 - ATK 20 - MP 100 - Alev Topu</div></div>
+        </button>
+        <button type="button" class="class-card rogue" data-class="Rogue" disabled>
+          <div class="class-icon">&#x1F5E1;&#xFE0F;</div>
+          <div><div class="class-name">Rogue</div><div class="class-stats">HP 105 - ATK 15 - 50 Altin baslangic</div></div>
+        </button>
+      </div>
+      <div class="class-error" id="classError"></div>
+    </div>
+  </div>
+  <div class="game-ui hidden" id="gameUi">
+    <div class="hud-topline">
+      <div class="character-identity">
+        <div class="character-avatar" id="hudAvatar">&#x2694;&#xFE0F;</div>
+        <div class="identity-copy">
+          <span class="identity-kicker">NEON RUNNER</span>
+          <strong class="identity-name" id="hudCharacter">Warrior</strong>
+        </div>
+      </div>
+      <span class="menu-tag" id="hudTitle">CYBER DUNGEON</span>
+      <button type="button" class="settings-pill" id="settingsBtn">Ses: AÇIK</button>
+    </div>
+    <header class="hud-bar">
+      <div class="stat-badge hp-badge">
+        <span class="badge-label">HP</span>
+        <div class="badge-row">
+          <span class="status-dot" id="hpDot"></span>
+          <span class="badge-value" id="badgeHp">--</span>
+        </div>
+      </div>
+      <div class="stat-badge atk-badge">
+        <span class="badge-label">ATK</span>
+        <span class="badge-value" id="badgeAtk">--</span>
+      </div>
+      <div class="stat-badge mp-badge">
+        <span class="badge-label">MP</span>
+        <span class="badge-value" id="badgeMp">--</span>
+      </div>
+      <div class="stat-badge floor-badge">
+        <span class="badge-label">Floor</span>
+        <span class="badge-value" id="badgeFloor">Floor: 1/100</span>
+      </div>
+    </header>
+    <section class="hud-panels" id="hudPanels" aria-label="Görev ve boss bilgileri">
+      <div class="hud-panel hud-quest" id="hudQuestPanel">
+        <div class="hud-panel-title"><span>&#x1F4CB; GÖREV</span><span class="hud-panel-meta" id="hudQuestProgress">0/0</span></div>
+        <div class="hud-panel-value" id="hudQuestName">Görev yükleniyor...</div>
+        <div class="hud-progress"><div class="hud-progress-fill hud-quest-fill" id="hudQuestBar"></div></div>
+      </div>
+      <div class="hud-panel hud-boss" id="hudBossPanel">
+        <div class="hud-panel-title"><span>&#x1F409; CYBER-DRAGON</span><span class="hud-panel-meta" id="hudBossHp">0/0</span></div>
+        <div class="hud-progress"><div class="hud-progress-fill hud-boss-fill" id="hudBossBar"></div></div>
+      </div>
+    </section>
+    <section class="map-section" id="mapSection">
+      <div class="canvas-frame" id="canvasFrame">
+        <canvas id="gameCanvas"></canvas>
+      </div>
+      <div class="minimap-panel">
+        <span class="mini-label"><span class="legend-dot" style="background:var(--neon-green)"></span> Minimap</span>
+        <canvas id="minimapCanvas" width="90" height="90"></canvas>
+      </div>
+    </section>
+    <section class="log-section">
+      <div class="log-header">&#x1F4DC; Savas Gunlugu</div>
+      <div class="combat-log" id="combatLog"></div>
+    </section>
+    <section class="controls-section">
+      <div class="dpad-row">
+        <div class="dpad" id="dpad">
+          <button type="button" class="dpad-btn up" data-dir="up">&#9650;</button>
+          <button type="button" class="dpad-btn left" data-dir="left">&#9664;</button>
+          <button type="button" class="dpad-btn center" tabindex="-1">&#9711;</button>
+          <button type="button" class="dpad-btn right" data-dir="right">&#9654;</button>
+          <button type="button" class="dpad-btn down" data-dir="down">&#9660;</button>
+        </div>
+      </div>
+      <div class="action-row">
+        <button type="button" class="action-btn attack" id="attackBtn" disabled>
+          <span class="action-icon">&#x1F4A5;</span>Attak
+        </button>
+        <button type="button" class="action-btn status" id="statusBtn">
+          <span class="action-icon">&#x1F4CA;</span>Durum
+        </button>
+        <button type="button" class="action-btn shop" id="shopBtn" disabled>
+          <span class="action-icon">&#x1F3EA;</span>Dukkan
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Status Modal -->
+  <div class="status-overlay" id="statusOverlay">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div class="modal-title">&#x26A1; Karakter Durumu</div>
+        <button type="button" class="modal-close" id="statusClose" aria-label="Kapat">&#x2715;</button>
+      </div>
+      <div class="detail-row"><span class="detail-label">Sinif</span><span class="detail-value" id="statClass">-</span></div>
+      <div class="detail-row"><span class="detail-label">HP</span><span class="detail-value" id="statHp">-</span></div>
+      <div class="bar-wrap">
+        <div class="bar-label"><span>Mana</span><span id="statMp">-</span></div>
+        <div class="bar-bg"><div class="bar-fill mp-fill" id="mpBarFill" style="width:0%"></div></div>
+      </div>
+      <div class="detail-row"><span class="detail-label">Altin</span><span class="detail-value" id="statGold" style="color:var(--neon-yellow)">0</span></div>
+      <div class="detail-row"><span class="detail-label">EXP</span><span class="detail-value" id="statExp">0/100</span></div>
+      <div class="bar-wrap"><div class="bar-bg"><div class="bar-fill exp-fill" id="expBarFill" style="width:0%"></div></div></div>
+      <div class="detail-row"><span class="detail-label">Zirh</span><span class="detail-value" id="statDefense">0</span></div>
+      <div class="section-title">&#x1F6E1; Donanim</div>
+      <div class="equip-grid">
+        <div class="equip-slot weapon" id="slotWeapon" data-slot="weapon">
+          <span class="slot-icon">&#x2694;&#xFE0F;</span>
+          <span class="slot-label">SILAH</span>
+          <span class="slot-name" id="slotWeaponName">Bos</span>
+          <span class="slot-stats" id="slotWeaponStats"></span>
+        </div>
+        <div class="equip-slot armor" id="slotArmor" data-slot="armor">
+          <span class="slot-icon">&#x1F6E1;&#xFE0F;</span>
+          <span class="slot-label">ZIRH</span>
+          <span class="slot-name" id="slotArmorName">Bos</span>
+          <span class="slot-stats" id="slotArmorStats"></span>
+        </div>
+        <div class="equip-slot accessory" id="slotAccessory" data-slot="accessory">
+          <span class="slot-icon">&#x1F48D;</span>
+          <span class="slot-label">AKSESUAR</span>
+          <span class="slot-name" id="slotAccessoryName">Bos</span>
+          <span class="slot-stats" id="slotAccessoryStats"></span>
+        </div>
+      </div>
+      <div class="section-title">&#x1F392; Envanter (<span id="invCount">0</span>/12)</div>
+      <div class="inv-grid" id="invGrid"></div>
+      <div class="quest-block" id="questPanel">
+        <div class="quest-block-title">&#x1F4CB; Gunluk Gorev</div>
+        <div class="detail-row" style="border:none;padding:2px 0">
+          <span class="detail-value" id="questName">-</span>
+          <span class="detail-value" id="questReward" style="color:var(--neon-yellow);font-size:0.65rem">+100</span>
+        </div>
+        <div class="bar-label"><span id="questProgressText">0/3</span></div>
+        <div class="bar-bg"><div class="bar-fill quest-fill" id="questBarFill" style="width:0%"></div></div>
+        <div id="questCompleteMsg" style="display:none;margin-top:6px;font-size:0.65rem;color:var(--neon-green);text-align:center">TAMAMLANDI!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shop Modal -->
+  <div class="shop-overlay" id="shopOverlay">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div class="modal-title">&#x1F3EA; Zindan Tuccari</div>
+        <button type="button" class="modal-close" id="shopClose" aria-label="Kapat">&#x2715;</button>
+      </div>
+      <div class="detail-row" style="margin-bottom:10px">
+        <span class="detail-label">Altin</span>
+        <span class="detail-value" id="shopGold" style="color:var(--neon-yellow)">0</span>
+      </div>
+      <div class="shop-item">
+        <div><div class="shop-item-name">&#x1F9EA; Can Iksiri</div><div class="shop-item-desc">+30 HP - 20 Altin</div></div>
+        <button type="button" class="shop-buy-btn" data-item="potion">Al</button>
+      </div>
+      <div class="shop-item">
+        <div><div class="shop-item-name">&#x1F52E; Mana Iksiri</div><div class="shop-item-desc">+40 MP - 30 Altin</div></div>
+        <button type="button" class="shop-buy-btn" data-item="mana_potion">Al</button>
+      </div>
+      <div class="shop-item">
+        <div><div class="shop-item-name">&#x1F5E1;&#xFE0F; Kilic+</div><div class="shop-item-desc">+5 ATK - 100 Altin</div></div>
+        <button type="button" class="shop-buy-btn" data-item="sword_upgrade">Al</button>
+      </div>
+      <div class="shop-item">
+        <div><div class="shop-item-name">&#x1F6E1;&#xFE0F; Zirh+</div><div class="shop-item-desc">-3 hasar - 150 Altin</div></div>
+        <button type="button" class="shop-buy-btn" data-item="armor_upgrade">Al</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over -->
+  <div class="game-over-overlay" id="gameOverOverlay">
+    <div class="modal-panel" style="text-align:center;border:1px solid rgba(255,34,68,0.4)">
+      <div class="game-over-title">GAME OVER</div>
+      <p style="color:var(--text-muted);font-size:0.8rem" id="gameOverSub">Savasci dustu...</p>
+      <button type="button" class="restart-btn" id="restartBtn">Yeniden Basla</button>
+    </div>
+  </div>
+
+  <!-- Victory Screen -->
+  <div class="victory-overlay" id="victoryOverlay">
+    <div class="modal-panel">
+      <div class="victory-title">VICTORY</div>
+      <div class="victory-sub">Cyber-Dragon yenildi! Zindan fethedildi!</div>
+      <div class="victory-stats">
+        <div class="victory-stat-row"><span class="victory-stat-label">Son Kat</span><span class="victory-stat-val" id="vFloor">100/100</span></div>
+        <div class="victory-stat-row"><span class="victory-stat-label">Seviye</span><span class="victory-stat-val" id="vLevel">-</span></div>
+        <div class="victory-stat-row"><span class="victory-stat-label">Altin</span><span class="victory-stat-val" id="vGold">-</span></div>
+      </div>
+      <button type="button" class="surface-btn" id="surfaceBtn">YENİDEN BAŞLAT</button>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    const GRID_SIZE = 36, VIEW_SIZE = 12;
+    const API_BASE = window.GAME_API_BASE || window.location.origin;
+    function apiUrl(path) { return API_BASE + path; }
+    const TILE = 0, WALL = 1, STAIRS = 2, SECRET_DOOR = 3;
+    const FOG_DARK = 0, FOG_VISIBLE = 1, FOG_FOGGY = 2;
+    const FIREBALL_COST = 20, FIREBALL_RANGE = 3;
+    const MAX_FLOOR = 100;
+    const CLASS_SPD = { Warrior: 3, Mage: 4, Rogue: 6 };
+    const SLOT_ICONS = { weapon: '&#x2694;&#xFE0F;', armor: '&#x1F6E1;&#xFE0F;', accessory: '&#x1F48D;' };
+    const RARITY_COLORS = { common:'#a0aec0', uncommon:'#39ff14', rare:'#88aaff', legendary:'#ffaa00' };
+
+    const COLORS = {
+      floor:'#151c2c', floorAlt:'#1a2236',
+      wall:'#2a3548', wallEdge:'#3d4f6a',
+      player:'#00f0ff', chest:'#ffe600',
+      enemy:'#ff2244', enemyBg:'#3a0a14',
+      archer:'#ccaa44', archerBg:'#2a2000',
+      orc:'#44bb44', orcBg:'#0a2a0a',
+      boss:'#ff6600', bossBg:'#1a0500',
+      merchant:'#39ff14', merchantBg:'#0a2a0a',
+      stairs:'#aa66ff',
+      gridLine:'rgba(0,240,255,0.05)',
+      fogOverlay:'rgba(0,0,0,0.58)',
+    };
+    const MAP_THEMES = [
+      { wallTop:'#46505d', wallMid:'#303946', wallBottom:'#1b222d', floorA:'#3a3b42', floorB:'#34353c', floorDark:'#272930', line:'rgba(190,184,165,0.17)', accent:'#ffb52e' },
+      { wallTop:'#713f3b', wallMid:'#492c31', wallBottom:'#241b24', floorA:'#4b3030', floorB:'#41292c', floorDark:'#2b1c22', line:'rgba(255,145,78,0.18)', accent:'#ff7148' },
+      { wallTop:'#7b95a8', wallMid:'#4b6578', wallBottom:'#243746', floorA:'#536b7b', floorB:'#485e70', floorDark:'#304451', line:'rgba(190,232,255,0.2)', accent:'#9eeaff' },
+      { wallTop:'#53654d', wallMid:'#394938', wallBottom:'#202b25', floorA:'#465443', floorB:'#3d4b3d', floorDark:'#29352c', line:'rgba(172,205,130,0.18)', accent:'#b5d66c' },
+      { wallTop:'#80684a', wallMid:'#57432f', wallBottom:'#2c2119', floorA:'#66533d', floorB:'#5b4936', floorDark:'#3a2d22', line:'rgba(255,218,137,0.2)', accent:'#ffd36a' }
+    ];
+
+      // --- Pixel sprite definitions (8x8) ---
+      // Use characters: '.' transparent, 'G' green, 'g' dark green, 'N' neon, 'B' bone, 'K' black/outline, 'R' red/orange
+      const SPRITES = {
+        'Goblin': {
+          size: 8,
+          matrix: [
+            '..GG..GG',
+            '.GGGGGG.',
+            '.G..NNG.',
+            '.G.GGGG.',
+            '.GGGGGG.',
+            '..GGGG..',
+            '...GG...',
+            '...GG...'
+          ],
+          palette: { 'G': '#39ff14', 'N': '#00f0ff' }
+        },
+        'Skeleton Archer': {
+          size: 8,
+          matrix: [
+            '..BBBB..',
+            '.B.BB.B.',
+            '.BBBBBB.',
+            '..B..B..',
+            '.BBBBBB.',
+            '.B.BB.B.',
+            '..B..B..',
+            '...BB...' 
+          ],
+          palette: { 'B': '#e6e6e6' }
+        },
+        'Orc Bruiser': {
+          size: 8,
+          matrix: [
+            '..gg..gg',
+            '.gggggg.',
+            '.g..NNg.',
+            '.g.gggg.',
+            '.ggGGgg.',
+            '..gggg..',
+            '...gg...',
+            '...gg...'
+          ],
+          palette: { 'g': '#3faa3f', 'G': '#44bb44', 'N': '#ffcc00' }
+        },
+        'Cyber-Dragon': {
+          size: 10,
+          matrix: [
+            '...KKKKK...',
+            '..KRRRRRK..',
+            '.KRRRNNRRK.',
+            '.KRRRNNRRK.',
+            '.KRRRKKRRK.',
+            '.KRRRKKRRK.',
+            '..KRRRRRK..',
+            '...KRRRK...',
+            '....KKK....',
+            '...........'
+          ],
+          palette: { 'K': '#222222', 'R': '#ff6600', 'N': '#ffcc33' }
+        }
+      };
+
+      const PLAYER_SPRITES = {
+        Warrior: {
+          size: 8,
+          matrix: [
+            '...KK...',
+            '..KSSK..',
+            '.KSVVSK.',
+            '.KSSSSK.',
+            '..SSSS..',
+            '.SSSSSS.',
+            '..S..S..',
+            '.S....S.'
+          ],
+          palette: { 'K':'#172033', 'S':'#49b7c7', 'V':'#f5ffff' }
+        },
+        Mage: {
+          size: 8,
+          matrix: [
+            '...PP...',
+            '..PPPP..',
+            '..PVVPP.',
+            '.PPPPPP.',
+            '..BBBB..',
+            '.BBBBBB.',
+            '.B.BB.B.',
+            '...BB...'
+          ],
+          palette: { 'P':'#38236b', 'V':'#d8b4fe', 'B':'#4488ff' }
+        },
+        Rogue: {
+          size: 8,
+          matrix: [
+            '...KK...',
+            '..KGGK..',
+            '.KGVVGK.',
+            '.KGGGGK.',
+            '..GGGG..',
+            '.GGGGGG.',
+            '..G..G..',
+            '.G....G.'
+          ],
+          palette: { 'K':'#10251f', 'G':'#39bb66', 'V':'#00f0ff' }
+        }
+      };
+
+      function drawSmallPixelCharacter(px, py, sprite, glowColor) {
+        const pixelSize = Math.max(1, Math.floor(cellSize / sprite.size));
+        const spriteSize = sprite.size * pixelSize;
+        const offsetX = px + (cellSize - spriteSize) / 2;
+        const offsetY = py + (cellSize - spriteSize) / 2 - pixelSize;
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.beginPath();
+        ctx.ellipse(px + cellSize/2, py + cellSize*0.88, cellSize*0.28, cellSize*0.07, 0, 0, Math.PI*2);
+        ctx.fill();
+        const glow = ctx.createRadialGradient(px + cellSize/2, py + cellSize*0.55, 0, px + cellSize/2, py + cellSize*0.55, cellSize*0.7);
+        glow.addColorStop(0, glowColor); glow.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = glow; ctx.fillRect(px, py, cellSize, cellSize);
+        ctx.restore();
+        drawPixelSprite(offsetX, offsetY, pixelSize, sprite);
+      }
+
+      function drawPixelSprite(px, py, pixelSize, sprite) {
+        const mat = sprite.matrix;
+        const pal = sprite.palette;
+        for (let ry = 0; ry < mat.length; ry++) {
+          const row = mat[ry];
+          for (let rx = 0; rx < row.length; rx++) {
+            const ch = row[rx];
+            if (ch === '.' || !pal[ch]) continue;
+            ctx.fillStyle = pal[ch];
+            ctx.fillRect(px + rx * pixelSize, py + ry * pixelSize, pixelSize, pixelSize);
+          }
+        }
+      }
+
+    // DOM refs
+    const canvas = document.getElementById('gameCanvas');
+    const minimapCanvas = document.getElementById('minimapCanvas');
+    const ctx = canvas.getContext('2d');
+    const minimapCtx = minimapCanvas.getContext('2d');
+    const mapSection = document.getElementById('mapSection');
+    const combatLog = document.getElementById('combatLog');
+    const gameUi = document.getElementById('gameUi');
+    const classOverlay = document.getElementById('classOverlay');
+    const classError = document.getElementById('classError');
+    const classButtons = document.querySelectorAll('.class-card');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const gameOverOverlay = document.getElementById('gameOverOverlay');
+    const victoryOverlay = document.getElementById('victoryOverlay');
+    const statusOverlay = document.getElementById('statusOverlay');
+    const shopOverlay = document.getElementById('shopOverlay');
+    const hudPanels = document.getElementById('hudPanels');
+    const hudQuestPanel = document.getElementById('hudQuestPanel');
+    const hudBossPanel = document.getElementById('hudBossPanel');
+    const hudQuestName = document.getElementById('hudQuestName');
+    const hudQuestProgress = document.getElementById('hudQuestProgress');
+    const hudQuestBar = document.getElementById('hudQuestBar');
+    const hudBossHp = document.getElementById('hudBossHp');
+    const hudBossBar = document.getElementById('hudBossBar');
+    const hudAvatar = document.getElementById('hudAvatar');
+    const hudCharacter = document.getElementById('hudCharacter');
+    const attackBtn = document.getElementById('attackBtn');
+    const statusBtn = document.getElementById('statusBtn');
+    const shopBtn = document.getElementById('shopBtn');
+    const hpDot = document.getElementById('hpDot');
+    const questPanel = document.getElementById('questPanel');
+    const floorNotif = document.getElementById('floorNotif');
+    const canvasFrame = document.getElementById('canvasFrame');
+
+    // State
+    let map = [], fogMatrix = [], enemies = [], chests = [];
+    let merchant = { x:0, y:0, visible:false };
+    let stairs = { x:-1, y:-1 };
+    let secretKey = { x:-1, y:-1, active:false };
+    let secretDoor = { x:-1, y:-1, open:false };
+    let hasSecretKey = false, secretMapIndex = 1;
+    let boss = null;
+    let dailyQuest = { name:'', target:1, progress:0, reward:100, completed:false };
+    let soundEnabled = true;
+    let audioCtx = null;
+    let player = { x:0, y:0 };
+    let cellSize = 20;
+    let gameOver = false, gameWon = false, isMoving = false;
+    let isBuying = false, isCasting = false;
+    let classSelected = false, initComplete = false, isSelectingClass = false;
+    let characterClass = '', gridSize = GRID_SIZE;
+    let atMerchant = false, loopStarted = false;
+    let currentFloor = 1;
+    let character = { level:1, hp:100, maxHp:100, mp:50, maxMp:50, gold:0, exp:0, expToNext:100, attack:15, defense:0 };
+    let inventoryItems = [];
+    let equipment = { weapon:null, armor:null, accessory:null };
+    let floatTexts = [];
+    let aoeEffect = null; // { cx, cy, radius, life, born }
+
+    const keysHeld = new Set();
+    const keyToDir = {
+      ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right',
+      w:'up', W:'up', s:'down', S:'down', a:'left', A:'left', d:'right', D:'right',
+    };
+
+    // ── Logging ─────────────────────────────────────────────────────────────
+    function ensureAudio() {
+      if (!soundEnabled) return null;
+      if (!audioCtx) {
+        const AudioCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtor) return null;
+        audioCtx = new AudioCtor();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    function playTone(freq, duration, volume, type) {
+      const ctxAudio = ensureAudio();
+      if (!ctxAudio) return;
+      const osc = ctxAudio.createOscillator();
+      const gain = ctxAudio.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.value = freq;
+      gain.gain.value = volume || 0.04;
+      osc.connect(gain);
+      gain.connect(ctxAudio.destination);
+      osc.start();
+      setTimeout(function(){
+        osc.stop();
+      }, duration);
+    }
+
+    function playActionSound(kind) {
+      if (!soundEnabled) return;
+      if (kind === 'move') playTone(220, 80, 0.025, 'triangle');
+      if (kind === 'attack') playTone(180, 100, 0.04, 'square');
+      if (kind === 'loot') playTone(440, 120, 0.05, 'triangle');
+      if (kind === 'boss') playTone(90, 220, 0.06, 'sawtooth');
+      if (kind === 'win') playTone(660, 180, 0.05, 'sine');
+      if (kind === 'menu') playTone(350, 90, 0.03, 'triangle');
+    }
+
+    function timeStr() {
+      var n = new Date();
+      return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+    }
+    function addLog(msg, type) {
+      var el = document.createElement('div');
+      el.className = 'log-entry';
+      el.innerHTML = '<span class="log-time">['+timeStr()+']</span> <span class="log-msg '+(type||'info')+'">'+msg+'</span>';
+      combatLog.appendChild(el);
+      combatLog.scrollTop = combatLog.scrollHeight;
+      while (combatLog.children.length > 50) combatLog.removeChild(combatLog.firstChild);
+    }
+    function processLogs(logs) {
+      if (!logs) return;
+      logs.forEach(function(l) { addLog(l.message, l.type||'info'); });
+    }
+
+    // ── Floor notification ──────────────────────────────────────────────────
+    function showFloorNotif(floor, isBoss) {
+      floorNotif.textContent = isBoss ? '&#x1F409; KAT '+floor+'/'+MAX_FLOOR+' — FINAL BOSS!' : 'KAT '+floor+'/'+MAX_FLOOR;
+      floorNotif.innerHTML = isBoss
+        ? '&#x1F409; KAT '+floor+'/'+MAX_FLOOR+' &mdash; CYBER-DRAGON!'
+        : '&#x2B07; KAT '+floor+'/'+MAX_FLOOR;
+      floorNotif.className = 'floor-notif' + (isBoss ? ' boss' : '') + ' show';
+      setTimeout(function() { floorNotif.classList.remove('show'); }, 3000);
+    }
+
+    function showSecretMapNotif(mapNumber, isFinal) {
+      floorNotif.innerHTML = isFinal
+        ? '&#x1F3DB; FINAL HARİTA '+mapNumber+'/5 &mdash; HAZİNE ODASI'
+        : '&#x1F6AA; GİZLİ HARİTA '+mapNumber+'/5';
+      floorNotif.className = 'floor-notif' + (isFinal ? ' boss' : '') + ' show';
+      setTimeout(function() { floorNotif.classList.remove('show'); }, 3200);
+    }
+
+    // ── Float texts ──────────────────────────────────────────────────────────
+    function spawnFloat(wx, wy, text, color) {
+      floatTexts.push({ wx:wx, wy:wy, text:text, color:color, born:performance.now() });
+    }
+
+    // ── UI Updates ───────────────────────────────────────────────────────────
+    function getSpeed() { return CLASS_SPD[characterClass] || 4; }
+
+    function updateHpDot() {
+      var ratio = character.maxHp ? character.hp/character.maxHp : 0;
+      hpDot.className = 'status-dot';
+      if (ratio <= 0.25) hpDot.classList.add('crit');
+      else if (ratio <= 0.5) hpDot.classList.add('warn');
+    }
+
+    function updateQuestUI() {
+      if (!dailyQuest.name) return;
+      var pct = Math.min(100, (dailyQuest.progress/dailyQuest.target)*100);
+      document.getElementById('questName').textContent = dailyQuest.name;
+      document.getElementById('questReward').textContent = '+'+dailyQuest.reward;
+      document.getElementById('questProgressText').textContent = dailyQuest.progress+'/'+dailyQuest.target;
+      document.getElementById('questBarFill').style.width = pct+'%';
+      var done = document.getElementById('questCompleteMsg');
+      if (dailyQuest.completed) {
+        questPanel.classList.add('completed');
+        done.style.display = 'block';
+      } else {
+        questPanel.classList.remove('completed');
+        done.style.display = 'none';
+      }
+    }
+
+    function updateHudPanels() {
+      var questTarget = dailyQuest.target || 0;
+      var questProgress = Math.min(questTarget, dailyQuest.progress || 0);
+      var questPct = questTarget ? (questProgress / questTarget) * 100 : 0;
+      hudQuestName.textContent = dailyQuest.name || 'Görev yükleniyor...';
+      hudQuestProgress.textContent = questProgress + '/' + questTarget;
+      hudQuestBar.style.width = questPct + '%';
+      hudQuestPanel.classList.toggle('completed', !!dailyQuest.completed);
+
+      var bossActive = !!(boss && boss.hp > 0 && !gameWon);
+      hudBossPanel.classList.toggle('active', bossActive);
+      hudPanels.classList.toggle('has-boss', bossActive);
+      if (bossActive) {
+        var bossMaxHp = boss.max_hp || boss.maxHp || 1;
+        var bossHp = Math.max(0, boss.hp || 0);
+        hudBossHp.textContent = bossHp + '/' + bossMaxHp;
+        hudBossBar.style.width = Math.min(100, (bossHp / bossMaxHp) * 100) + '%';
+      } else {
+        hudBossHp.textContent = '0/0';
+        hudBossBar.style.width = '0%';
+      }
+    }
+
+    function updateEquipUI() {
+      ['weapon','armor','accessory'].forEach(function(slot) {
+        var item = equipment[slot];
+        var nameEl  = document.getElementById('slot'+slot.charAt(0).toUpperCase()+slot.slice(1)+'Name');
+        var statsEl = document.getElementById('slot'+slot.charAt(0).toUpperCase()+slot.slice(1)+'Stats');
+        var slotEl  = document.getElementById('slot'+slot.charAt(0).toUpperCase()+slot.slice(1));
+        if (item) {
+          nameEl.textContent = item.name;
+          nameEl.className = 'slot-name rarity-'+item.rarity;
+          statsEl.textContent = (item.atk ? '+'+item.atk+' ATK ' : '') + (item.def ? '+'+item.def+' DEF' : '');
+          slotEl.classList.add('has-item');
+        } else {
+          nameEl.textContent = 'Bos';
+          nameEl.className = 'slot-name';
+          statsEl.textContent = '';
+          slotEl.classList.remove('has-item');
+        }
+      });
+    }
+
+    function updateInvUI() {
+      var grid = document.getElementById('invGrid');
+      var countEl = document.getElementById('invCount');
+      countEl.textContent = inventoryItems.length;
+      grid.innerHTML = '';
+      if (!inventoryItems.length) {
+        grid.innerHTML = '<div class="inv-empty">Envanter bos</div>';
+        return;
+      }
+      inventoryItems.forEach(function(item, idx) {
+        var row = document.createElement('div');
+        row.className = 'inv-item';
+        var slotIcon = item.slot === 'weapon' ? '&#x2694;&#xFE0F;' : item.slot === 'armor' ? '&#x1F6E1;&#xFE0F;' : '&#x1F48D;';
+        var statsStr = (item.atk ? '+'+item.atk+' ATK ' : '') + (item.def ? '+'+item.def+' DEF' : '');
+        row.innerHTML =
+          '<span class="inv-icon">'+slotIcon+'</span>'+
+          '<span class="inv-name rarity-'+item.rarity+'">'+item.name+'</span>'+
+          '<span class="inv-stats">'+statsStr+'</span>'+
+          '<button class="inv-equip-btn" data-idx="'+idx+'">Kusan</button>';
+        grid.appendChild(row);
+      });
+      grid.querySelectorAll('.inv-equip-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() { equipItem(parseInt(btn.dataset.idx)); });
+      });
+    }
+
+    function updateUI() {
+      var classIcons = { Warrior:'&#x2694;&#xFE0F;', Mage:'&#x1F52E;', Rogue:'&#x1F5E1;&#xFE0F;' };
+      hudAvatar.innerHTML = classIcons[characterClass] || '&#x2694;&#xFE0F;';
+      hudCharacter.textContent = characterClass || 'Runner';
+      document.getElementById('hudTitle').textContent = 'MAP ' + secretMapIndex + '/5';
+      document.getElementById('badgeHp').textContent = character.hp+'/'+character.maxHp;
+      document.getElementById('badgeAtk').textContent = character.attack;
+      document.getElementById('badgeMp').textContent = character.mp+'/'+character.maxMp;
+      // Floor badge in requested format
+      document.getElementById('badgeFloor').textContent = 'Floor: ' + currentFloor + '/' + MAX_FLOOR;
+      updateHpDot();
+      document.getElementById('statClass').textContent = characterClass || '-';
+      document.getElementById('statHp').textContent = character.hp+' / '+character.maxHp;
+      document.getElementById('statMp').textContent = character.mp+' / '+character.maxMp;
+      document.getElementById('mpBarFill').style.width = (character.maxMp ? character.mp/character.maxMp*100 : 0)+'%';
+      document.getElementById('statGold').textContent = character.gold;
+      document.getElementById('statExp').textContent = character.exp+' / '+character.expToNext;
+      document.getElementById('expBarFill').style.width = (character.exp/character.expToNext*100)+'%';
+      document.getElementById('statDefense').textContent = '-'+character.defense;
+      document.getElementById('shopGold').textContent = character.gold;
+      updateAttackButton();
+      updateShopButtons();
+      shopBtn.disabled = gameOver || gameWon || !atMerchant;
+      updateQuestUI();
+      updateHudPanels();
+      updateEquipUI();
+      updateInvUI();
+    }
+
+    function applyCharacterState(data) {
+      character = {
+        level: data.level, hp: data.hp, maxHp: data.max_hp,
+        mp: data.mp != null ? data.mp : 50,
+        maxMp: data.max_mp != null ? data.max_mp : 50,
+        gold: data.gold, exp: data.exp, expToNext: data.exp_to_next,
+        attack: data.attack_power || 15, defense: data.damage_reduction || 0,
+      };
+      if (data.character_class) characterClass = data.character_class;
+      if (data.daily_quest) dailyQuest = data.daily_quest;
+      if (data.inventory) inventoryItems = data.inventory;
+      if (data.equipment) equipment = data.equipment;
+      if (data.floor) currentFloor = data.floor;
+      classSelected = !!data.class_selected;
+      gameOver = !!data.game_over;
+      gameWon = !!data.game_won;
+      atMerchant = !!data.at_merchant;
+      secretMapIndex = data.secret_map || 1;
+      hasSecretKey = !!data.has_secret_key;
+      updateUI();
+    }
+
+    // Maintain smooth render positions for player
+    function ensurePlayerRender(data) {
+      if (typeof data.x === 'number' && typeof data.y === 'number') {
+        if (player.renderX == null) {
+          player.renderX = data.x * cellSize;
+          player.renderY = data.y * cellSize;
+        }
+        player.targetX = data.x * cellSize;
+        player.targetY = data.y * cellSize;
+        player.startX = player.renderX;
+        player.startY = player.renderY;
+        player.moveStart = performance.now();
+        player.moveDuration = 150;
+      }
+    }
+
+    function applyMapState(data) {
+      if (data.grid_size) gridSize = data.grid_size;
+      if (data.map && data.map.length) map = data.map;
+      if (data.fog_matrix && data.fog_matrix.length) fogMatrix = data.fog_matrix;
+      // Merge enemies to preserve render positions for smooth interpolation
+      const newEnemies = [];
+      const oldMap = {};
+      enemies.forEach(function(o){ if (o && o.id) oldMap[o.id] = o; });
+      (data.enemies || []).forEach(function(ne){
+        const old = oldMap[ne.id];
+        if (old && typeof old.renderX === 'number') {
+          ne.renderX = old.renderX;
+          ne.renderY = old.renderY;
+        } else {
+          ne.renderX = (ne.x || 0) * cellSize;
+          ne.renderY = (ne.y || 0) * cellSize;
+        }
+        ne.startX = ne.renderX; ne.startY = ne.renderY;
+        ne.targetX = (ne.x || 0) * cellSize; ne.targetY = (ne.y || 0) * cellSize;
+        ne.moveStart = performance.now(); ne.moveDuration = 150;
+        newEnemies.push(ne);
+      });
+      enemies = newEnemies;
+      chests = data.chests || [];
+      if (data.merchant) merchant = data.merchant;
+      if (data.stairs) stairs = data.stairs;
+      if (data.secret_key) secretKey = data.secret_key;
+      if (data.secret_door) secretDoor = data.secret_door;
+      boss = data.boss || null;
+      if (boss) {
+        if (typeof boss.renderX !== 'number') {
+          boss.renderX = (boss.x || 0) * cellSize; boss.renderY = (boss.y || 0) * cellSize;
+        }
+        boss.startX = boss.renderX; boss.startY = boss.renderY;
+        boss.targetX = (boss.x || 0) * cellSize; boss.targetY = (boss.y || 0) * cellSize;
+        boss.moveStart = performance.now(); boss.moveDuration = 150;
+      }
+      if (data.x != null) player.x = data.x;
+      if (data.y != null) player.y = data.y;
+      ensurePlayerRender(data);
+      updateUI();
+    }
+
+    function applyState(data) {
+      applyCharacterState(data);
+      applyMapState(data);
+    }
+
+    // ── Canvas helpers ────────────────────────────────────────────────────────
+    function getCamera() {
+      var half = Math.floor(VIEW_SIZE/2);
+      return {
+        x: Math.max(0, Math.min(player.x - half, gridSize - VIEW_SIZE)),
+        y: Math.max(0, Math.min(player.y - half, gridSize - VIEW_SIZE)),
+      };
+    }
+    function wts(wx, wy, cam) { return { x:(wx-cam.x)*cellSize, y:(wy-cam.y)*cellSize }; }
+    function inViewport(wx, wy, cam) {
+      return wx >= cam.x && wx < cam.x+VIEW_SIZE && wy >= cam.y && wy < cam.y+VIEW_SIZE;
+    }
+    function getFogAt(x, y) { return fogMatrix.length ? fogMatrix[y][x] : FOG_VISIBLE; }
+    function isVisible(x, y) { return getFogAt(x,y) === FOG_VISIBLE; }
+
+    function resizeCanvas() {
+      if (!classSelected) return;
+      var frame = canvas.parentElement;
+      var w = frame.clientWidth - 4;
+      var h = mapSection.clientHeight - 16;
+      if (w <= 0 || h <= 0) { requestAnimationFrame(resizeCanvas); return; }
+      var size = Math.min(w, h, window.innerWidth - 20);
+      cellSize = Math.max(1, Math.floor(size / VIEW_SIZE));
+      var cs = cellSize * VIEW_SIZE;
+      canvas.width = cs; canvas.height = cs;
+      canvas.style.width = cs+'px'; canvas.style.height = cs+'px';
+      draw();
+    }
+
+    // ── Tile drawing ─────────────────────────────────────────────────────────
+    function drawTile(sx, sy, t) {
+      var px = sx*cellSize, py = sy*cellSize;
+      var theme = MAP_THEMES[Math.max(0, Math.min(MAP_THEMES.length-1, secretMapIndex-1))];
+      if (t === WALL) {
+        ctx.fillStyle = theme.wallMid;
+        ctx.fillRect(px, py, cellSize, cellSize);
+        ctx.fillStyle = theme.wallTop;
+        ctx.fillRect(px+1, py+1, cellSize-2, Math.max(1, cellSize*0.09));
+        ctx.fillStyle = theme.wallBottom;
+        ctx.fillRect(px+1, py+cellSize-Math.max(2, cellSize*0.12), cellSize-2, Math.max(2, cellSize*0.12));
+        ctx.strokeStyle = theme.wallTop;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(px+0.5, py+0.5, cellSize-1, cellSize-1);
+        ctx.strokeStyle = 'rgba(8,12,18,0.5)';
+        ctx.beginPath();
+        ctx.moveTo(px+cellSize*0.18, py+cellSize*0.55);
+        ctx.lineTo(px+cellSize*0.43, py+cellSize*0.48);
+        ctx.lineTo(px+cellSize*0.68, py+cellSize*0.58);
+        ctx.stroke();
+      } else if (t === SECRET_DOOR) {
+        ctx.fillStyle = secretDoor.open ? '#4a321f' : '#241c20';
+        ctx.fillRect(px, py, cellSize, cellSize);
+        ctx.fillStyle = secretDoor.open ? '#a8793d' : '#5d4850';
+        ctx.fillRect(px+cellSize*0.18, py+cellSize*0.12, cellSize*0.64, cellSize*0.78);
+        ctx.strokeStyle = secretDoor.open ? '#ffd36a' : '#9b7180';
+        ctx.lineWidth = Math.max(1, cellSize*0.06);
+        ctx.strokeRect(px+cellSize*0.22, py+cellSize*0.16, cellSize*0.56, cellSize*0.7);
+        ctx.fillStyle = secretDoor.open ? '#ffe28a' : '#ff6688';
+        ctx.beginPath(); ctx.arc(px+cellSize*0.62, py+cellSize*0.52, Math.max(1.5, cellSize*0.07), 0, Math.PI*2); ctx.fill();
+      } else if (t === STAIRS) {
+        ctx.fillStyle = '#0b0d1d';
+        ctx.fillRect(px, py, cellSize, cellSize);
+        ctx.strokeStyle = 'rgba(170,102,255,0.35)';
+        ctx.strokeRect(px+1.5, py+1.5, cellSize-3, cellSize-3);
+        ctx.fillStyle = COLORS.stairs;
+        ctx.globalAlpha = 0.35 + 0.15*Math.sin(Date.now()/400);
+        ctx.fillRect(px+3, py+3, cellSize-6, cellSize-6);
+        ctx.globalAlpha = 1;
+        ctx.font = Math.floor(cellSize*0.55)+'px sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = COLORS.stairs;
+        ctx.shadowColor = COLORS.stairs; ctx.shadowBlur = 8;
+        ctx.fillText('\u25BC', px+cellSize/2, py+cellSize/2);
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.fillStyle = (sx+sy)%2 ? theme.floorA : theme.floorB;
+        ctx.fillRect(px, py, cellSize, cellSize);
+        ctx.fillStyle = theme.floorDark;
+        ctx.fillRect(px+2, py+cellSize-2, cellSize-4, 2);
+        ctx.strokeStyle = theme.line;
+        ctx.strokeRect(px+1.5, py+1.5, cellSize-3, cellSize-3);
+        var mark = (sx*17 + sy*31) % 7;
+        if (mark === 0 && cellSize >= 12) {
+          ctx.strokeStyle = theme.line;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(px+cellSize*0.25, py+cellSize*0.42);
+          ctx.lineTo(px+cellSize*0.42, py+cellSize*0.56);
+          ctx.lineTo(px+cellSize*0.34, py+cellSize*0.75);
+          ctx.stroke();
+        }
+      }
+      ctx.strokeStyle = COLORS.gridLine; ctx.lineWidth = 0.5;
+      ctx.strokeRect(px, py, cellSize, cellSize);
+    }
+
+    function drawDecoration(sx, sy, wx, wy, tile) {
+      if (tile !== TILE) return;
+      var hash = Math.abs((wx * 37 + wy * 61 + wx * wy * 3) % 29);
+      var px = sx * cellSize, py = sy * cellSize;
+      if (hash === 3 && cellSize >= 14) {
+        var torch = ctx.createRadialGradient(px+cellSize*0.52, py+cellSize*0.38, 0, px+cellSize*0.52, py+cellSize*0.38, cellSize*0.65);
+        torch.addColorStop(0, 'rgba(255,219,112,0.38)'); torch.addColorStop(1, 'rgba(255,115,30,0)');
+        ctx.fillStyle = torch;
+        ctx.fillRect(px-cellSize*0.15, py-cellSize*0.1, cellSize*1.3, cellSize*1.2);
+        ctx.fillStyle = '#6b4025';
+        ctx.fillRect(px+cellSize*0.46, py+cellSize*0.48, Math.max(2, cellSize*0.1), cellSize*0.28);
+        ctx.fillStyle = '#ffb52e';
+        ctx.beginPath();
+        ctx.moveTo(px+cellSize*0.51, py+cellSize*0.28);
+        ctx.lineTo(px+cellSize*0.64, py+cellSize*0.5);
+        ctx.lineTo(px+cellSize*0.5, py+cellSize*0.62);
+        ctx.lineTo(px+cellSize*0.39, py+cellSize*0.5);
+        ctx.closePath(); ctx.fill();
+      } else if (hash === 11 && cellSize >= 16) {
+        ctx.fillStyle = '#4b4b4e';
+        ctx.fillRect(px+cellSize*0.25, py+cellSize*0.32, cellSize*0.5, cellSize*0.5);
+        ctx.fillStyle = '#77716a';
+        ctx.fillRect(px+cellSize*0.31, py+cellSize*0.24, cellSize*0.38, cellSize*0.12);
+        ctx.fillStyle = 'rgba(20,20,22,0.45)';
+        ctx.fillRect(px+cellSize*0.34, py+cellSize*0.42, cellSize*0.32, cellSize*0.08);
+      } else if (hash === 19 && cellSize >= 16) {
+        ctx.fillStyle = '#515159';
+        ctx.fillRect(px+cellSize*0.2, py+cellSize*0.24, cellSize*0.6, cellSize*0.58);
+        ctx.fillStyle = '#777780';
+        ctx.fillRect(px+cellSize*0.27, py+cellSize*0.18, cellSize*0.46, cellSize*0.1);
+        ctx.strokeStyle = 'rgba(15,16,20,0.55)';
+        ctx.strokeRect(px+cellSize*0.3, py+cellSize*0.36, cellSize*0.4, cellSize*0.28);
+      }
+    }
+
+    function drawChest(sx, sy, isTreasure) {
+      var px = sx*cellSize, py = sy*cellSize, pad = cellSize*0.15, s = cellSize-pad*2;
+      ctx.fillStyle = isTreasure ? '#d07a16' : '#6f4930';
+      ctx.fillRect(px+pad, py+pad+s*0.2, s, s*0.7);
+      ctx.fillStyle = isTreasure ? '#ffe36a' : COLORS.chest;
+      ctx.fillRect(px+pad, py+pad, s, s*0.35);
+      if (isTreasure) {
+        ctx.strokeStyle = '#fff2a6'; ctx.lineWidth = 1;
+        ctx.strokeRect(px+pad-1, py+pad-1, s+2, s*0.9);
+      }
+    }
+
+    function drawMerchant(sx, sy) {
+      var px = sx*cellSize, py = sy*cellSize, pad = cellSize*0.12, s = cellSize-pad*2;
+      ctx.fillStyle = COLORS.merchantBg;
+      ctx.fillRect(px+pad, py+pad, s, s);
+      ctx.strokeStyle = COLORS.merchant; ctx.lineWidth = 2;
+      ctx.strokeRect(px+pad+1, py+pad+1, s-2, s-2);
+      ctx.fillStyle = COLORS.merchant;
+      ctx.font = 'bold '+Math.floor(cellSize*0.5)+'px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('M', px+cellSize/2, py+cellSize/2+1);
+    }
+
+    function drawSecretKey(sx, sy) {
+      var px = sx*cellSize, py = sy*cellSize;
+      ctx.save();
+      ctx.shadowColor = '#ffe36a'; ctx.shadowBlur = 10;
+      ctx.strokeStyle = '#ffe36a'; ctx.lineWidth = Math.max(2, cellSize*0.08);
+      ctx.beginPath();
+      ctx.arc(px+cellSize*0.38, py+cellSize*0.42, cellSize*0.14, 0, Math.PI*2);
+      ctx.moveTo(px+cellSize*0.49, py+cellSize*0.52);
+      ctx.lineTo(px+cellSize*0.76, py+cellSize*0.79);
+      ctx.moveTo(px+cellSize*0.65, py+cellSize*0.68);
+      ctx.lineTo(px+cellSize*0.76, py+cellSize*0.57);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function draw3DCharacter(px, py, options) {
+      var cx = px + cellSize/2, baseY = py + cellSize*0.9;
+      var scale = Math.max(0.72, Math.min(1.15, cellSize/28));
+      var bodyW = cellSize*0.34*scale, bodyH = cellSize*0.4*scale;
+      var headR = cellSize*0.17*scale, headY = py + cellSize*0.29;
+      ctx.save();
+
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.beginPath(); ctx.ellipse(cx, baseY, bodyW*1.25, cellSize*0.1, 0, 0, Math.PI*2); ctx.fill();
+      var aura = ctx.createRadialGradient(cx, baseY-cellSize*0.35, 0, cx, baseY-cellSize*0.35, cellSize*0.72);
+      aura.addColorStop(0, options.glow || 'rgba(0,240,255,0.2)'); aura.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = aura; ctx.fillRect(px-cellSize*0.3, py, cellSize*1.6, cellSize);
+
+      var body = ctx.createLinearGradient(cx-bodyW, 0, cx+bodyW, 0);
+      body.addColorStop(0, options.shadow); body.addColorStop(0.42, options.color); body.addColorStop(1, options.highlight);
+      ctx.fillStyle = body;
+      ctx.beginPath();
+      ctx.moveTo(cx-bodyW*0.75, headY+headR*1.4); ctx.lineTo(cx+bodyW*0.75, headY+headR*1.4);
+      ctx.lineTo(cx+bodyW, baseY); ctx.lineTo(cx-bodyW, baseY); ctx.closePath(); ctx.fill();
+
+      ctx.fillStyle = options.shadow;
+      ctx.beginPath(); ctx.moveTo(cx-bodyW*0.72, baseY); ctx.lineTo(cx-bodyW*0.98, baseY+cellSize*0.08);
+      ctx.lineTo(cx-bodyW*0.45, baseY+cellSize*0.08); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = options.highlight;
+      ctx.beginPath(); ctx.moveTo(cx+bodyW*0.72, baseY); ctx.lineTo(cx+bodyW*0.98, baseY+cellSize*0.08);
+      ctx.lineTo(cx+bodyW*0.45, baseY+cellSize*0.08); ctx.closePath(); ctx.fill();
+
+      ctx.strokeStyle = options.highlight; ctx.lineWidth = Math.max(1, cellSize*0.06);
+      ctx.beginPath(); ctx.moveTo(cx-bodyW*0.88, headY+headR*1.8); ctx.lineTo(cx-bodyW*1.2, headY+headR*2.65); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx+bodyW*0.88, headY+headR*1.8); ctx.lineTo(cx+bodyW*1.2, headY+headR*2.65); ctx.stroke();
+
+      var head = ctx.createRadialGradient(cx-headR*0.45, headY-headR*0.55, headR*0.1, cx, headY, headR*1.3);
+      head.addColorStop(0, options.highlight); head.addColorStop(0.55, options.color); head.addColorStop(1, options.shadow);
+      ctx.fillStyle = head; ctx.beginPath(); ctx.arc(cx, headY, headR, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = options.visor || '#00f0ff';
+      ctx.beginPath(); ctx.ellipse(cx+headR*0.18, headY+headR*0.05, headR*0.62, headR*0.2, -0.08, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 0.8; ctx.fillStyle = '#fff';
+      ctx.fillRect(cx+headR*0.1, headY-headR*0.04, headR*0.28, Math.max(1, headR*0.08));
+      ctx.restore();
+    }
+
+    function drawEnemy(sx, sy, e) {
+      var px = sx, py = sy;
+      var spriteKey = e.name === 'Orc Bruiser' ? 'Orc Bruiser' : (e.name === 'Skeleton Archer' ? 'Skeleton Archer' : 'Goblin');
+      var glow = e.name === 'Orc Bruiser' ? 'rgba(68,187,68,0.25)' : e.name === 'Skeleton Archer' ? 'rgba(255,204,102,0.2)' : 'rgba(255,34,68,0.24)';
+      drawSmallPixelCharacter(px, py, SPRITES[spriteKey], glow);
+
+      // HP bar
+      var hpRatio = Math.max(0, e.hp / e.max_hp);
+      ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(px + 2, py - 6, cellSize - 4, 4);
+      ctx.fillStyle = hpRatio > 0.5 ? '#39ff14' : hpRatio > 0.25 ? '#ffe600' : '#ff2244';
+      ctx.fillRect(px + 2, py - 6, Math.max(2, (cellSize - 4) * hpRatio), 4);
+    }
+
+    function drawBoss(sx, sy) {
+      if (!boss) return;
+      var px = sx, py = sy;
+      // big glow
+      var t = Date.now() / 600;
+      var glowR = cellSize * 1.2 + cellSize * 0.25 * Math.sin(t);
+      var g = ctx.createRadialGradient(px + cellSize/2, py + cellSize/2, 0, px + cellSize/2, py + cellSize/2, glowR);
+      g.addColorStop(0, 'rgba(255,120,40,0.6)');
+      g.addColorStop(1, 'rgba(255,30,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(px - cellSize*0.5, py - cellSize*0.5, cellSize*2, cellSize*2);
+      drawSmallPixelCharacter(px, py, SPRITES['Cyber-Dragon'], 'rgba(255,102,0,0.35)');
+      // HP bar
+      var hpR = Math.max(0, boss.hp / boss.max_hp);
+      ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(px + 2, py - 10, cellSize - 4, 6);
+      ctx.fillStyle = '#ff4400'; ctx.fillRect(px + 2, py - 10, (cellSize - 4) * hpR, 6);
+      ctx.fillStyle = '#ffaa00'; ctx.font = '8px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(boss.hp + '/' + boss.max_hp, px + cellSize / 2, py - 4);
+    }
+
+    function drawPlayer(sx, sy) {
+      var px = sx, py = sy;
+      var sprite = PLAYER_SPRITES[characterClass] || PLAYER_SPRITES.Warrior;
+      var glow = characterClass === 'Mage' ? 'rgba(68,136,255,0.3)' : characterClass === 'Rogue' ? 'rgba(57,255,20,0.25)' : 'rgba(0,240,255,0.3)';
+      drawSmallPixelCharacter(px, py, sprite, glow);
+    }
+
+    function drawFogOverlay(sx, sy) {
+      ctx.fillStyle = COLORS.fogOverlay;
+      ctx.fillRect(sx*cellSize, sy*cellSize, cellSize, cellSize);
+    }
+
+    function drawFogVignette(cam) {
+      var psx = (player.x-cam.x)*cellSize+cellSize/2;
+      var psy = (player.y-cam.y)*cellSize+cellSize/2;
+      var radius = cellSize*4.5;
+      var grad = ctx.createRadialGradient(psx, psy, radius*0.55, psx, psy, radius*1.6);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.6, 'rgba(0,0,0,0.3)');
+      grad.addColorStop(1, 'rgba(0,0,0,0.9)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function drawFloatTexts(now) {
+      var dur = 600;
+      floatTexts = floatTexts.filter(function(f) { return now - f.born < dur; });
+      if (!floatTexts.length) return;
+      var cam = getCamera();
+      floatTexts.forEach(function(f) {
+        if (!inViewport(f.wx, f.wy, cam)) return;
+        var s = wts(f.wx, f.wy, cam);
+        var age = now - f.born, life = 1 - age/dur;
+        var offsetY = (age/dur)*cellSize*2.5;
+        ctx.save();
+        ctx.globalAlpha = life;
+        ctx.font = 'bold '+Math.max(9, Math.floor(cellSize*0.55))+'px "Share Tech Mono",monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 4;
+        ctx.fillStyle = f.color;
+        ctx.fillText(f.text, s.x+cellSize/2, s.y+cellSize/2-offsetY);
+        ctx.restore();
+      });
+    }
+
+    function drawAoeEffect(now) {
+      if (!aoeEffect) return;
+      var age = now - aoeEffect.born;
+      if (age > 400) { aoeEffect = null; return; }
+      var cam = getCamera();
+      var life = 1 - age/400;
+      var r = aoeEffect.radius;
+      for (var dy2 = -r; dy2 <= r; dy2++) {
+        for (var dx2 = -r; dx2 <= r; dx2++) {
+          var wx2 = aoeEffect.cx + dx2, wy2 = aoeEffect.cy + dy2;
+          if (!inViewport(wx2, wy2, cam)) continue;
+          var s2 = wts(wx2, wy2, cam);
+          ctx.fillStyle = 'rgba(255,'+(80+Math.floor(life*100))+',0,'+(life*0.65)+')';
+          ctx.fillRect(s2.x, s2.y, cellSize, cellSize);
+        }
+      }
+    }
+
+    // ── Main draw ─────────────────────────────────────────────────────────────
+    function renderMinimap() {
+      if (!map.length) return;
+      const mini = minimapCanvas;
+      const mctx = minimapCtx;
+      const miniSize = map.length;
+      const cell = mini.width / miniSize;
+      mctx.clearRect(0, 0, mini.width, mini.height);
+      mctx.fillStyle = '#05080f';
+      mctx.fillRect(0, 0, mini.width, mini.height);
+      for (let y = 0; y < miniSize; y++) {
+        for (let x = 0; x < miniSize; x++) {
+          const tile = map[y][x];
+          const px = x * cell; const py = y * cell;
+          if (tile === WALL) mctx.fillStyle = '#243447';
+          else if (tile === STAIRS) mctx.fillStyle = '#7d5cff';
+          else if (tile === SECRET_DOOR) mctx.fillStyle = secretDoor.open ? '#ffd36a' : '#ff6688';
+          else mctx.fillStyle = '#111b2c';
+          mctx.fillRect(px, py, cell, cell);
+        }
+      }
+      if (merchant && merchant.visible) {
+        mctx.fillStyle = '#39ff14';
+        mctx.fillRect(merchant.x * cell + 1, merchant.y * cell + 1, Math.max(2, cell - 2), Math.max(2, cell - 2));
+      }
+      if (stairs && stairs.x >= 0 && stairs.y >= 0) {
+        mctx.fillStyle = '#aa66ff';
+        mctx.fillRect(stairs.x * cell + 1, stairs.y * cell + 1, Math.max(2, cell - 2), Math.max(2, cell - 2));
+      }
+      if (secretKey && secretKey.active) {
+        mctx.fillStyle = '#ffe36a';
+        mctx.fillRect(secretKey.x * cell + 1, secretKey.y * cell + 1, Math.max(2, cell - 2), Math.max(2, cell - 2));
+      }
+      if (boss) {
+        mctx.fillStyle = '#ff6600';
+        mctx.fillRect(boss.x * cell + 1, boss.y * cell + 1, Math.max(2, cell - 2), Math.max(2, cell - 2));
+      }
+      enemies.forEach(function(enemy) {
+        if (!enemy) return;
+        mctx.fillStyle = enemy.name === 'Skeleton Archer' ? '#ffcc66' : enemy.name === 'Orc Bruiser' ? '#44bb44' : '#ff2244';
+        mctx.fillRect(enemy.x * cell + 1, enemy.y * cell + 1, Math.max(2, cell - 2), Math.max(2, cell - 2));
+      });
+      mctx.fillStyle = '#00f0ff';
+      mctx.fillRect(player.x * cell + 1, player.y * cell + 1, Math.max(2, cell - 2), Math.max(2, cell - 2));
+      mctx.strokeStyle = 'rgba(0,240,255,0.35)';
+      mctx.strokeRect(0, 0, mini.width, mini.height);
+    }
+
+    function draw() {
+      if (!map.length || !classSelected) return;
+      renderMinimap();
+      var cam = getCamera();
+      var now = performance.now();
+      // Update render positions (interpolation)
+      function updateRenders(arr) {
+        arr.forEach(function(ent){
+          if (!ent) return;
+          if (typeof ent.targetX !== 'number') return;
+          var dur = ent.moveDuration || 150;
+          var t = Math.min(1, (now - (ent.moveStart||0)) / dur);
+          if (t < 0) t = 0;
+          ent.renderX = (typeof ent.startX === 'number') ? (ent.startX + (ent.targetX - ent.startX) * t) : ent.targetX;
+          ent.renderY = (typeof ent.startY === 'number') ? (ent.startY + (ent.targetY - ent.startY) * t) : ent.targetY;
+        });
+      }
+      updateRenders(enemies);
+      if (boss) updateRenders([boss]);
+      // player
+      if (typeof player.targetX === 'number') {
+        var pdur = player.moveDuration || 150;
+        var pt = Math.min(1, (now - (player.moveStart||0)) / pdur);
+        player.renderX = (player.startX != null) ? (player.startX + (player.targetX - player.startX) * pt) : player.targetX;
+        player.renderY = (player.startY != null) ? (player.startY + (player.targetY - player.startY) * pt) : player.targetY;
+      }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (var vy = 0; vy < VIEW_SIZE; vy++) {
+        for (var vx = 0; vx < VIEW_SIZE; vx++) {
+          var wx = cam.x+vx, wy = cam.y+vy;
+          var fog = getFogAt(wx, wy);
+          if (fog === FOG_DARK) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(vx*cellSize, vy*cellSize, cellSize, cellSize);
+          } else {
+            drawTile(vx, vy, map[wy][wx]);
+            drawDecoration(vx, vy, wx, wy, map[wy][wx]);
+            // Draw entities only in visible fog
+            if (fog === FOG_FOGGY) drawFogOverlay(vx, vy);
+          }
+        }
+      }
+
+      chests.forEach(function(c) {
+        if (c.active && c.visible && isVisible(c.x,c.y) && inViewport(c.x,c.y,cam)) {
+          var s = wts(c.x, c.y, cam); drawChest(s.x/cellSize, s.y/cellSize, c.treasure);
+        }
+      });
+      if (secretKey && secretKey.active && isVisible(secretKey.x, secretKey.y) && inViewport(secretKey.x, secretKey.y, cam)) {
+        var ks = wts(secretKey.x, secretKey.y, cam); drawSecretKey(ks.x/cellSize, ks.y/cellSize);
+      }
+      enemies.forEach(function(e) {
+        if (isVisible(e.x,e.y) && inViewport(e.x,e.y,cam)) {
+          var screenX = e.renderX - cam.x*cellSize;
+          var screenY = e.renderY - cam.y*cellSize;
+          drawEnemy(screenX, screenY, e);
+        }
+      });
+      if (boss && isVisible(boss.x,boss.y) && inViewport(boss.x,boss.y,cam)) {
+        var bsx = boss.renderX - cam.x*cellSize;
+        var bsy = boss.renderY - cam.y*cellSize;
+        drawBoss(bsx, bsy);
+      }
+      if (merchant.visible && isVisible(merchant.x,merchant.y) && inViewport(merchant.x,merchant.y,cam)) {
+        var ms = wts(merchant.x, merchant.y, cam); drawMerchant(ms.x/cellSize, ms.y/cellSize);
+      }
+      var psx = (player.renderX != null ? player.renderX : player.x*cellSize) - cam.x*cellSize;
+      var psy = (player.renderY != null ? player.renderY : player.y*cellSize) - cam.y*cellSize;
+      drawPlayer(psx, psy);
+
+      drawAoeEffect(now);
+      drawFogVignette(cam);
+      drawFloatTexts(now);
+    }
+
+    function ensureGameLoop() {
+      if (loopStarted) return;
+      loopStarted = true;
+      (function loop() {
+        if (classSelected && map.length) draw();
+        requestAnimationFrame(loop);
+      })();
+    }
+
+    // ── Shake ────────────────────────────────────────────────────────────────
+    function triggerShake() {
+      canvasFrame.classList.remove('shake');
+      void canvasFrame.offsetWidth;
+      canvasFrame.classList.add('shake');
+      setTimeout(function() { canvasFrame.classList.remove('shake'); }, 260);
+    }
+
+    // ── Attack button ────────────────────────────────────────────────────────
+    function getNearestEnemy() {
+      var best = null, bestDist = Infinity;
+      // Check boss first
+      if (boss) {
+        var bd = Math.max(Math.abs(boss.x-player.x), Math.abs(boss.y-player.y));
+        if (bd <= FIREBALL_RANGE && isVisible(boss.x,boss.y)) { best = {id:9999, x:boss.x, y:boss.y}; bestDist = bd; }
+      }
+      enemies.forEach(function(e) {
+        if (!isVisible(e.x,e.y)) return;
+        var d = Math.max(Math.abs(e.x-player.x), Math.abs(e.y-player.y));
+        if (d <= FIREBALL_RANGE && d < bestDist) { bestDist = d; best = e; }
+      });
+      return best;
+    }
+    function updateAttackButton() {
+      var target = getNearestEnemy();
+      attackBtn.disabled = gameOver || gameWon || isCasting || character.mp < FIREBALL_COST || !target;
+    }
+    function updateShopButtons() {
+      var costs = { potion:20, mana_potion:30, sword_upgrade:100, armor_upgrade:150 };
+      document.querySelectorAll('.shop-buy-btn').forEach(function(btn) {
+        btn.disabled = character.gold < costs[btn.dataset.item];
+      });
+    }
+
+    // ── Class select ─────────────────────────────────────────────────────────
+    function setClassButtonsEnabled(en) { classButtons.forEach(function(b) { b.disabled = !en; }); }
+    function showClassError(msg) { classError.textContent = msg; classError.classList.add('visible'); }
+    function hideClassError() { classError.textContent = ''; classError.classList.remove('visible'); }
+    function showClassSelect() { classOverlay.classList.add('active'); gameUi.classList.add('hidden'); setClassButtonsEnabled(initComplete && !isSelectingClass); }
+    function hideClassSelect() { classOverlay.classList.remove('active'); gameUi.classList.remove('hidden'); hideClassError(); }
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      const label = document.getElementById('settingsBtn');
+      if (label) label.textContent = 'Ses: ' + (soundEnabled ? 'AÇIK' : 'KAPALI');
+      playActionSound('menu');
+    }
+
+    function startGameFromState() {
+      hideClassSelect();
+      requestAnimationFrame(function() { resizeCanvas(); ensureGameLoop(); });
+    }
+
+    async function selectClass(cls) {
+      if (!initComplete || isSelectingClass || classSelected) return;
+      isSelectingClass = true; hideClassError(); setClassButtonsEnabled(false);
+      try {
+        var res = await fetch(apiUrl('/api/select-class?_='+Date.now()), { method:'POST', cache:'no-store', headers:{'Content-Type':'application/json'}, body:JSON.stringify({character_class:cls}) });
+        var data = await res.json().catch(function(){return{};});
+        if (res.status === 400 && data.detail === 'Önce karakter sınıfı seçin') {
+          await fetch(apiUrl('/api/reset?_='+Date.now()), { method:'POST', cache:'no-store' });
+          res = await fetch(apiUrl('/api/select-class?_='+Date.now()), { method:'POST', cache:'no-store', headers:{'Content-Type':'application/json'}, body:JSON.stringify({character_class:cls}) });
+          data = await res.json().catch(function(){return{};});
+        }
+        if (!res.ok) throw new Error(data.detail || 'Sinif secilemedi');
+        if (data.class_selected !== true) throw new Error('Karakter sınıfı sunucuda başlatılamadı');
+        applyState(data); combatLog.innerHTML = '';
+        startGameFromState();
+        addLog(characterClass + ' zindana girdi! 100 kat bekliyor...', 'info');
+        showFloorNotif(currentFloor, false);
+      } catch(e) {
+        showClassError((e&&e.message) || 'Sunucuya baglanamadı. Replit sunucusunu yeniden başlatın.');
+      } finally {
+        isSelectingClass = false;
+        if (!classSelected) setClassButtonsEnabled(initComplete);
+      }
+    }
+
+    // ── Game over / victory ───────────────────────────────────────────────────
+    function showGameOver(sub) {
+      gameOver = true;
+      document.getElementById('gameOverSub').textContent = sub || 'Savasci dustu...';
+      gameOverOverlay.classList.add('active'); updateUI();
+    }
+    function showVictory() {
+      gameWon = true;
+      document.getElementById('vFloor').textContent = MAX_FLOOR+'/'+MAX_FLOOR;
+      document.getElementById('vLevel').textContent = character.level;
+      document.getElementById('vGold').textContent = character.gold+' Altin';
+      victoryOverlay.classList.add('active'); updateUI();
+    }
+
+    // ── API actions ──────────────────────────────────────────────────────────
+    async function sendMove(direction) {
+      if (!classSelected || gameOver || gameWon || isMoving) return;
+      isMoving = true;
+      var prevHp = character.hp;
+      try {
+        var res = await fetch(apiUrl('/api/move'), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({direction:direction}) });
+        if (!res.ok) {
+          var err = await res.json().catch(function(){return{};});
+          addLog(err.detail || 'Hareket basarisiz', 'info');
+          return;
+        }
+        var data = await res.json();
+
+        // AoE effect
+        if (data.battles) {
+          data.battles.forEach(function(b) {
+            if (b.aoe) {
+              aoeEffect = { cx:b.aoe_cx, cy:b.aoe_cy, radius:b.aoe_radius||1, born:performance.now() };
+              triggerShake();
+              playActionSound('boss');
+            }
+            if (b.enemy_killed) {
+              spawnFloat(b.enemy_x || player.x, b.enemy_y || player.y, '+'+b.gold_gained+'G', '#ffe600');
+              spawnFloat(b.enemy_x || player.x, b.enemy_y || player.y, '+'+b.exp_gained+'EXP', '#39ff14');
+              playActionSound('loot');
+            }
+          });
+        }
+
+        applyState(data);
+
+        // Damage taken
+        var dmgTaken = prevHp - character.hp;
+        if (dmgTaken > 0) { spawnFloat(player.x, player.y, '-'+dmgTaken+' HP', '#ff4444'); triggerShake(); }
+
+        processLogs(data.logs);
+        if (data.blocked === false && !data.floor_changed) playActionSound('move');
+
+        if (data.floor_changed) {
+          showFloorNotif(currentFloor, currentFloor >= MAX_FLOOR);
+          playActionSound('boss');
+        }
+        if (data.secret_map_changed) {
+          showSecretMapNotif(secretMapIndex, secretMapIndex >= 5);
+          playActionSound(secretMapIndex >= 5 ? 'boss' : 'loot');
+        }
+        if (data.game_won || gameWon) {
+          showVictory();
+          playActionSound('win');
+        }
+        else if (data.game_over || gameOver) {
+          showGameOver();
+        }
+        if (data.at_merchant) shopOverlay.classList.add('active');
+        else shopOverlay.classList.remove('active');
+      } catch(e) { addLog('Sunucu hatasi!', 'info'); }
+      finally { isMoving = false; }
+    }
+
+    async function castFireball() {
+      if (!classSelected || gameOver || gameWon || isCasting) return;
+      var target = getNearestEnemy(); if (!target || character.mp < FIREBALL_COST) return;
+      isCasting = true; updateAttackButton();
+      try {
+        var body = target.id === 9999 ? {enemy_id:9999} : {enemy_id:target.id};
+        var res = await fetch(apiUrl('/api/cast-fireball'), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+        var data = await res.json().catch(function(){return{};});
+        if (!res.ok) { addLog(data.detail||'Saldiri basarisiz','info'); return; }
+        triggerShake();
+        spawnFloat(target.x, target.y, '-30 ATES!', '#ff8800');
+        spawnFloat(player.x, player.y, '-20 MP', '#4488ff');
+        if (data.enemy_killed) spawnFloat(target.x, target.y, 'OLDU!', '#ff2244');
+        applyState(data); processLogs(data.logs);
+        if (data.game_won || gameWon) showVictory();
+      } catch(e) { addLog('Saldiri hatasi!', 'info'); }
+      finally { isCasting = false; updateAttackButton(); }
+    }
+
+    async function buyItem(item) {
+      if (isBuying || gameOver || gameWon) return;
+      isBuying = true;
+      try {
+        var res = await fetch(apiUrl('/api/buy-item'), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({item:item}) });
+        var data = await res.json().catch(function(){return{};});
+        if (!res.ok) { addLog(data.detail||'Satin alma basarisiz','info'); return; }
+        playActionSound('loot');
+        applyState(data); processLogs(data.logs);
+      } catch(e) { addLog('Magaza hatasi!','info'); }
+      finally { isBuying = false; }
+    }
+
+    async function equipItem(idx) {
+      try {
+        var res = await fetch(apiUrl('/api/equip'), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({item_index:idx}) });
+        var data = await res.json().catch(function(){return{};});
+        if (!res.ok) { addLog(data.detail||'Donanilamadi','info'); return; }
+        applyState(data); processLogs([{type:'item',message:data.message}]);
+      } catch(e) { addLog('Ekipman hatasi!','info'); }
+    }
+
+    async function unequipSlot(slot) {
+      try {
+        var res = await fetch(apiUrl('/api/unequip'), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({slot:slot}) });
+        var data = await res.json().catch(function(){return{};});
+        if (!res.ok) { addLog(data.detail||'Cikarilmadi','info'); return; }
+        applyState(data); processLogs([{type:'item',message:data.message}]);
+      } catch(e) { addLog('Ekipman hatasi!','info'); }
+    }
+
+    async function resetGame() {
+      try {
+        var res = await fetch(apiUrl('/api/reset'), { method:'POST' });
+        if (!res.ok) throw new Error('reset');
+        combatLog.innerHTML = '';
+        gameOverOverlay.classList.remove('active');
+        victoryOverlay.classList.remove('active');
+        shopOverlay.classList.remove('active');
+        statusOverlay.classList.remove('active');
+        gameOver = false; gameWon = false; classSelected = false; map = [];
+        floatTexts = []; aoeEffect = null;
+        applyState(await res.json());
+        showClassSelect();
+      } catch(e) { addLog('Sifirlama basarisiz.','info'); }
+    }
+
+    // ── Event listeners ───────────────────────────────────────────────────────
+    classButtons.forEach(function(btn) {
+      btn.addEventListener('click', function() { selectClass(btn.dataset.class); });
+    });
+
+    document.getElementById('settingsBtn').addEventListener('click', toggleSound);
+
+    document.getElementById('dpad').querySelectorAll('.dpad-btn[data-dir]').forEach(function(btn) {
+      var dir = btn.dataset.dir;
+      function press(e) { e.preventDefault(); if (classSelected&&!gameOver&&!gameWon) { btn.classList.add('pressed'); playActionSound('move'); sendMove(dir); } }
+      function release() { btn.classList.remove('pressed'); }
+      btn.addEventListener('touchstart', press, {passive:false});
+      btn.addEventListener('touchend', function(e){e.preventDefault();release();},{passive:false});
+      btn.addEventListener('touchcancel', release);
+      btn.addEventListener('mousedown', press);
+      btn.addEventListener('mouseup', release);
+      btn.addEventListener('mouseleave', release);
+    });
+
+    attackBtn.addEventListener('click', function(e){e.preventDefault();castFireball();});
+    attackBtn.addEventListener('touchstart', function(e){e.preventDefault();castFireball();},{passive:false});
+    statusBtn.addEventListener('click', function(){statusOverlay.classList.add('active');});
+    shopBtn.addEventListener('click', function(){if(atMerchant)shopOverlay.classList.add('active');else addLog('Tuccarin yakininda degilsin!','info');});
+    document.getElementById('statusClose').addEventListener('click', function(){statusOverlay.classList.remove('active');});
+    document.getElementById('shopClose').addEventListener('click', function(){shopOverlay.classList.remove('active');});
+    document.getElementById('restartBtn').addEventListener('click', resetGame);
+    document.getElementById('surfaceBtn').addEventListener('click', resetGame);
+    document.querySelectorAll('.shop-buy-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){buyItem(btn.dataset.item);});
+    });
+    // Equipment slot click = unequip
+    ['slotWeapon','slotArmor','slotAccessory'].forEach(function(id) {
+      var el = document.getElementById(id);
+      el.addEventListener('click', function(){ var slot = el.dataset.slot; if(equipment[slot]) unequipSlot(slot); });
+    });
+
+    document.addEventListener('keydown', function(e){
+      if (!classSelected||gameOver||gameWon) return;
+      var dir = keyToDir[e.key];
+      if (dir && !keysHeld.has(e.key)) { e.preventDefault(); keysHeld.add(e.key); sendMove(dir); }
+    });
+    document.addEventListener('keyup', function(e){keysHeld.delete(e.key);});
+
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', function(){setTimeout(resizeCanvas,150);});
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(function(){resizeCanvas();}).observe(mapSection);
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    async function init() {
+      try {
+        var res = await fetch(apiUrl('/api/status?_='+Date.now()), { cache:'no-store' });
+        if (!res.ok) throw new Error('status');
+        var data = await res.json();
+        applyState(data);
+        loadingOverlay.classList.add('hidden');
+        initComplete = true;
+        if (data.class_selected) {
+          startGameFromState();
+          addLog('Tekrar hosgeldin, '+characterClass+'! Kat: '+currentFloor+'/'+MAX_FLOOR, 'info');
+          if (data.game_over) showGameOver('Savasci dustu... Yeniden baslat.');
+          else if (data.game_won) showVictory();
+        } else {
+          showClassSelect();
+        }
+      } catch(e) {
+        initComplete = true;
+        loadingOverlay.classList.add('hidden');
+        showClassSelect();
+        showClassError('Sunucuya baglanamadi - python main.py calistirin');
+        setClassButtonsEnabled(true);
+      }
+    }
+
+    init();
+  })();
+  </script>
+</body>
+</html>
