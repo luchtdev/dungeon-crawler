@@ -1493,11 +1493,13 @@ async def on_startup():
     init_database()
     clear_runtime_state()
 
-
 @app.get("/")
 @app.get("/index.html")
 async def serve_index():
     return FileResponse(BASE_DIR / "index.html")
+    @app.get("/icon.png")
+async def get_icon():
+    return FileResponse(BASE_DIR / "icon.png")
 
 
 def get_username(user_id: Optional[int]) -> Optional[str]:
