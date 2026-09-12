@@ -1497,7 +1497,7 @@ async def on_startup():
 @app.get("/index.html")
 async def serve_index():
     return FileResponse(BASE_DIR / "index.html")
-    @app.get("/icon.png")
+@app.get("/icon.png")
 async def get_icon():
     return FileResponse(BASE_DIR / "icon.png")
 
