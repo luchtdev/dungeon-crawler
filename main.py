@@ -1,17 +1,27 @@
 import random
 import os
+import hashlib
+import hmac
+import json
+import secrets
+import sqlite3
+from datetime import datetime, timedelta, timezone
 from collections import deque
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = BASE_DIR / "cyber_dungeon.sqlite3"
+SESSION_COOKIE = "cyber_dungeon_session"
+SESSION_DAYS = 30
 
 GRID_SIZE = 36
+START_POS = (1, 1)
 TILE = 0
 WALL = 1
 STAIRS = 2
@@ -35,11 +45,25 @@ MP_REGEN_SAFE = 2
 FIREBALL_COST = 20
 FIREBALL_DAMAGE = 30
 FIREBALL_RANGE = 3
+WARRIOR_RANGED_SKILLS = {
+    "stone_throw": {"level": 2, "name": "Tas Atisi", "damage": 18, "range": 3, "cooldown": 0, "description": "+18 hasar, 3 kare menzil"},
+    "bow_shot": {"level": 3, "name": "Ok Atisi", "damage": 28, "range": 5, "cooldown": 1, "description": "+28 hasar, 5 kare menzil"},
+    "power_arrow": {"level": 5, "name": "Guclu Ok", "damage": 45, "range": 5, "cooldown": 3, "armor_penetration": 10, "description": "+45 hasar, zirh delme"},
+    "multi_shot": {"level": 7, "name": "Coklu Atis", "damage": 24, "range": 5, "cooldown": 2, "description": "Hedefe ve yakinindaki dusmanlara atis"},
+    "explosive_arrow": {"level": 10, "name": "Patlayici Ok", "damage": 55, "range": 6, "cooldown": 4, "splash": 1, "description": "Cevreye alan hasari"},
+}
 QUEST_REWARD = 100
 ITEM_DROP_CHANCE = 0.40
 MAX_FLOOR = 100
 BOSS_FLOOR = 100
 BOSS_AOE_INTERVAL = 3   # boss every N turns fires neon flame AoE
+RANGED_SKILL_MAX_USES = 3
+
+LEVEL_UP_CHOICES = {
+    "power": {"name": "Guc", "description": "+5 Saldiri"},
+    "vitality": {"name": "Dayaniklilik", "description": "+30 Maksimum HP"},
+    "focus": {"name": "Odak", "description": "+15 Maksimum MP"},
+}
 
 QUEST_TEMPLATES = [
     {"type": "kill_enemies", "name": "Goblin Avla", "target": 3},
@@ -135,6 +159,98 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+ACHIEVEMENTS = {
+    "first_blood": {"name": "Ilk Kan", "description": "Ilk dusmani yen", "icon": "⚔️"},
+    "level_5": {"name": "Usta Savasci", "description": "5. seviyeye ulas", "icon": "⭐"},
+    "floor_10": {"name": "Derinliklere", "description": "10. kata ulas", "icon": "🗺️"},
+    "gold_1000": {"name": "Hazine Avcisi", "description": "Toplam 1000 altin kazan", "icon": "💰"},
+    "boss_slayer": {"name": "Ejderha Avcisi", "description": "Cyber-Dragon'u yen", "icon": "🐉"},
+}
+
+
+def db_connect() -> sqlite3.Connection:
+    connection = sqlite3.connect(DB_PATH)
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
+def init_database() -> None:
+    with db_connect() as connection:
+        connection.executescript("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS sessions (
+                token TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                expires_at TEXT NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+            CREATE TABLE IF NOT EXISTS profiles (
+                user_id INTEGER PRIMARY KEY,
+                state_json TEXT NOT NULL,
+                achievements_json TEXT NOT NULL DEFAULT '[]',
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+        """)
+
+
+def hash_password(password: str, salt: Optional[bytes] = None) -> str:
+    salt = salt or secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 180_000)
+    return f"pbkdf2_sha256$180000${salt.hex()}${digest.hex()}"
+
+
+def verify_password(password: str, encoded: str) -> bool:
+    try:
+        algorithm, rounds, salt_hex, digest_hex = encoded.split("$")
+        if algorithm != "pbkdf2_sha256":
+            return False
+        candidate = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt_hex), int(rounds))
+        return hmac.compare_digest(candidate.hex(), digest_hex)
+    except (ValueError, TypeError):
+        return False
+
+
+def session_user_id(request: Request) -> Optional[int]:
+    token = request.cookies.get(SESSION_COOKIE)
+    if not token:
+        return None
+    now = datetime.now(timezone.utc).isoformat()
+    with db_connect() as connection:
+        row = connection.execute(
+            "SELECT user_id FROM sessions WHERE token = ? AND expires_at > ?", (token, now)
+        ).fetchone()
+    return int(row["user_id"]) if row else None
+
+
+def create_session(user_id: int, response: Response) -> None:
+    token = secrets.token_urlsafe(32)
+    expires = datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS)
+    with db_connect() as connection:
+        connection.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        connection.execute(
+            "INSERT INTO sessions(token, user_id, expires_at) VALUES (?, ?, ?)",
+            (token, user_id, expires.isoformat()),
+        )
+    response.set_cookie(SESSION_COOKIE, token, max_age=SESSION_DAYS * 86400,
+                        httponly=True, samesite="lax", secure=False, path="/")
+
+
+def account_achievements() -> list:
+    if not current_user_id:
+        return []
+    with db_connect() as connection:
+        row = connection.execute("SELECT achievements_json FROM profiles WHERE user_id = ?", (current_user_id,)).fetchone()
+    unlocked = json.loads(row["achievements_json"]) if row else []
+    return [
+        {"id": achievement_id, **definition, "unlocked": achievement_id in unlocked}
+        for achievement_id, definition in ACHIEVEMENTS.items()
+    ]
+
 # ---------------------------------------------------------------------------
 # Global state
 # ---------------------------------------------------------------------------
@@ -147,7 +263,9 @@ stairs_pos: dict = {"x": -1, "y": -1}
 next_enemy_id = 1
 game_over = False
 game_won = False
+pending_level_ups = 0
 boss_entity: Optional[dict] = None   # active boss on floor 100
+current_user_id: Optional[int] = None
 class_selected = False
 character_class: Optional[str] = None
 daily_quest: dict = {}
@@ -164,8 +282,12 @@ player_state = {
     "attack_power": BASE_ATTACK,
     "damage_reduction": 0,
     "mp": BASE_MP, "max_mp": BASE_MP,
+    "unlocked_skills": [], "skill_uses": {}, "ranged_cooldown": 0,
+    "level_attack_bonus": 0, "level_defense_bonus": 0,
+    "level_max_hp_bonus": 0, "level_max_mp_bonus": 0,
     "x": 0, "y": 0,
     "character_class": None,
+    "stats": {"enemies_killed": 0, "total_gold_earned": 0, "highest_floor": 1, "games_won": 0},
 }
 
 # Equipment slots: None or item dict
@@ -173,6 +295,151 @@ equipment: dict = {"weapon": None, "armor": None, "accessory": None}
 # Backpack inventory list of item dicts
 inventory: list = []
 MAX_INVENTORY = 12
+
+
+def runtime_state() -> dict:
+    return {
+        "game_map": game_map, "fog_matrix": fog_matrix, "enemies": enemies, "chests": chests,
+        "merchant_state": merchant_state, "stairs_pos": stairs_pos, "next_enemy_id": next_enemy_id,
+        "game_over": game_over, "game_won": game_won, "boss_entity": boss_entity,
+        "class_selected": class_selected, "character_class": character_class,
+        "daily_quest": daily_quest, "current_floor": current_floor, "secret_map_index": secret_map_index,
+        "secret_key": secret_key, "secret_door": secret_door, "has_secret_key": has_secret_key,
+        "player_state": player_state, "equipment": equipment, "inventory": inventory,
+        "pending_level_ups": pending_level_ups,
+    }
+
+
+def clear_runtime_state() -> None:
+    global game_map, fog_matrix, enemies, chests, merchant_state, stairs_pos, next_enemy_id
+    global game_over, game_won, boss_entity, class_selected, character_class, daily_quest
+    global current_floor, secret_map_index, secret_key, secret_door, has_secret_key
+    global equipment, inventory, pending_level_ups
+    game_map, fog_matrix, enemies, chests = [], [], [], []
+    merchant_state, stairs_pos = {"x": 0, "y": 0}, {"x": -1, "y": -1}
+    next_enemy_id = 1
+    game_over = game_won = False
+    boss_entity = None
+    class_selected = False
+    character_class = None
+    daily_quest = {}
+    current_floor = secret_map_index = 1
+    secret_key = {"x": -1, "y": -1, "active": False}
+    secret_door = {"x": -1, "y": -1, "open": False}
+    has_secret_key = False
+    equipment = {"weapon": None, "armor": None, "accessory": None}
+    inventory = []
+    pending_level_ups = 0
+    player_state.clear()
+    player_state.update({
+        "hp": 100, "max_hp": 100, "gold": 0, "exp": 0, "level": 1,
+        "exp_to_next": EXP_TO_LEVEL, "attack_power": BASE_ATTACK, "damage_reduction": 0,
+        "mp": BASE_MP, "max_mp": BASE_MP, "level_attack_bonus": 0,
+        "unlocked_skills": [], "skill_uses": {}, "ranged_cooldown": 0,
+        "level_defense_bonus": 0, "level_max_hp_bonus": 0, "level_max_mp_bonus": 0,
+        "x": START_POS[0], "y": START_POS[1], "character_class": None,
+        "stats": {"enemies_killed": 0, "total_gold_earned": 0, "highest_floor": 1, "games_won": 0},
+    })
+    init_daily_quest()
+
+
+def load_game_state(user_id: int) -> None:
+    global current_user_id, game_map, fog_matrix, enemies, chests, merchant_state, stairs_pos, next_enemy_id
+    global game_over, game_won, boss_entity, class_selected, character_class, daily_quest
+    global current_floor, secret_map_index, secret_key, secret_door, has_secret_key
+    global player_state, equipment, inventory, pending_level_ups
+    current_user_id = user_id
+    with db_connect() as connection:
+        row = connection.execute("SELECT state_json FROM profiles WHERE user_id = ?", (user_id,)).fetchone()
+    if not row:
+        clear_runtime_state()
+        return
+    state = json.loads(row["state_json"])
+    if "player_state" not in state:
+        clear_runtime_state()
+        return
+    game_map = state.get("game_map", [])
+    fog_matrix = state.get("fog_matrix", [])
+    enemies = state.get("enemies", [])
+    chests = state.get("chests", [])
+    merchant_state = state.get("merchant_state", {"x": 0, "y": 0})
+    stairs_pos = state.get("stairs_pos", {"x": -1, "y": -1})
+    next_enemy_id = state.get("next_enemy_id", 1)
+    game_over, game_won = state.get("game_over", False), state.get("game_won", False)
+    boss_entity = state.get("boss_entity")
+    class_selected, character_class = state.get("class_selected", False), state.get("character_class")
+    daily_quest = state.get("daily_quest", {})
+    current_floor, secret_map_index = state.get("current_floor", 1), state.get("secret_map_index", 1)
+    secret_key = state.get("secret_key", {"x": -1, "y": -1, "active": False})
+    secret_door = state.get("secret_door", {"x": -1, "y": -1, "open": False})
+    has_secret_key = state.get("has_secret_key", False)
+    player_state = state.get("player_state", player_state)
+    player_state.setdefault("stats", {"enemies_killed": 0, "total_gold_earned": 0, "highest_floor": current_floor, "games_won": 0})
+    player_state.setdefault("unlocked_skills", [])
+    player_state.setdefault("skill_uses", {})
+    for skill_id in player_state["unlocked_skills"]:
+        player_state["skill_uses"].setdefault(skill_id, RANGED_SKILL_MAX_USES)
+    player_state.setdefault("ranged_cooldown", 0)
+    unlock_warrior_skills()
+    equipment = state.get("equipment", {"weapon": None, "armor": None, "accessory": None})
+    inventory = state.get("inventory", [])
+    pending_level_ups = state.get("pending_level_ups", 0)
+    repair_player_position()
+    if game_map:
+        ensure_map_connected(game_map, (player_state["x"], player_state["y"]))
+
+
+def repair_player_position() -> None:
+    """Recover saves that placed the player inside a wall or sealed pocket."""
+    if not game_map or len(game_map) < GRID_SIZE or any(len(row) < GRID_SIZE for row in game_map):
+        return
+    x, y = player_state["x"], player_state["y"]
+    neighbors = [(x + dx, y + dy) for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0))]
+    trapped = not is_in_bounds(x, y) or not game_map or game_map[y][x] == WALL
+    trapped = trapped or all(not is_in_bounds(nx, ny) or game_map[ny][nx] == WALL for nx, ny in neighbors)
+    if not trapped:
+        return
+    candidates = [START_POS] + get_all_floor_tiles()
+    for nx, ny in candidates:
+        if is_in_bounds(nx, ny) and game_map[ny][nx] == TILE:
+            player_state["x"], player_state["y"] = nx, ny
+            update_fog(nx, ny)
+            return
+
+
+def save_game_state() -> None:
+    if not current_user_id:
+        return
+    stats = player_state.setdefault("stats", {"enemies_killed": 0, "total_gold_earned": 0, "highest_floor": 1, "games_won": 0})
+    stats["highest_floor"] = max(stats.get("highest_floor", 1), current_floor)
+    with db_connect() as connection:
+        row = connection.execute("SELECT achievements_json FROM profiles WHERE user_id = ?", (current_user_id,)).fetchone()
+        unlocked = set(json.loads(row["achievements_json"]) if row else [])
+        if stats.get("enemies_killed", 0) >= 1: unlocked.add("first_blood")
+        if player_state.get("level", 1) >= 5: unlocked.add("level_5")
+        if stats.get("highest_floor", 1) >= 10: unlocked.add("floor_10")
+        if stats.get("total_gold_earned", 0) >= 1000: unlocked.add("gold_1000")
+        if stats.get("games_won", 0) >= 1: unlocked.add("boss_slayer")
+        connection.execute(
+            "INSERT INTO profiles(user_id, state_json, achievements_json) VALUES (?, ?, ?) "
+            "ON CONFLICT(user_id) DO UPDATE SET state_json=excluded.state_json, achievements_json=excluded.achievements_json",
+            (current_user_id, json.dumps(runtime_state(), ensure_ascii=False), json.dumps(sorted(unlocked))),
+        )
+
+
+@app.middleware("http")
+async def account_state_middleware(request: Request, call_next):
+    public_paths = {"/", "/index.html", "/api/auth/register", "/api/auth/login", "/api/auth/logout", "/favicon.ico"}
+    if request.url.path.startswith("/api/") and request.url.path not in public_paths:
+        user_id = session_user_id(request)
+        if not user_id:
+            return JSONResponse({"detail": "Giris yapman gerekiyor"}, status_code=401)
+        load_game_state(user_id)
+        response = await call_next(request)
+        if response.status_code < 500:
+            save_game_state()
+        return response
+    return await call_next(request)
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -186,6 +453,9 @@ class BuyItemRequest(BaseModel):
 class FireballRequest(BaseModel):
     enemy_id: int
 
+class RangedAttackRequest(BaseModel):
+    enemy_id: int
+
 class SelectClassRequest(BaseModel):
     character_class: str = Field(..., pattern="^(Warrior|Mage|Rogue)$")
 
@@ -194,6 +464,13 @@ class EquipRequest(BaseModel):
 
 class UnequipRequest(BaseModel):
     slot: str   # "weapon" | "armor" | "accessory"
+
+class LevelUpRequest(BaseModel):
+    choice: str = Field(..., pattern="^(power|vitality|focus)$")
+
+class AuthRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=24, pattern="^[A-Za-z0-9_]+$")
+    password: str = Field(..., min_length=6, max_length=128)
 
 # ---------------------------------------------------------------------------
 # BSP Dungeon Generation
@@ -291,7 +568,52 @@ def generate_bsp_map() -> list:
     for yy in range(5):
         for xx in range(5):
             grid[yy][xx] = TILE
+    ensure_map_connected(grid, START_POS)
     return grid
+
+
+def ensure_map_connected(grid: list, start: tuple) -> None:
+    """Carve short corridors until every walkable map area is reachable."""
+    walkable = {TILE, STAIRS, SECRET_DOOR}
+
+    def reachable_from(origin: tuple) -> set:
+        if not (0 <= origin[0] < GRID_SIZE and 0 <= origin[1] < GRID_SIZE):
+            return set()
+        if grid[origin[1]][origin[0]] not in walkable:
+            return set()
+        visited = {origin}
+        queue = deque([origin])
+        while queue:
+            x, y = queue.popleft()
+            for dx, dy in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < GRID_SIZE and 0 <= ny < GRID_SIZE and (nx, ny) not in visited and grid[ny][nx] in walkable:
+                    visited.add((nx, ny))
+                    queue.append((nx, ny))
+        return visited
+
+    all_walkable = {(x, y) for y in range(GRID_SIZE) for x in range(GRID_SIZE) if grid[y][x] in walkable}
+    connected = reachable_from(start)
+    if not connected:
+        return
+    while connected != all_walkable:
+        remaining = all_walkable - connected
+        from_cell, to_cell = min(
+            ((a, b) for a in connected for b in remaining),
+            key=lambda pair: abs(pair[0][0] - pair[1][0]) + abs(pair[0][1] - pair[1][1]),
+        )
+        x, y = from_cell
+        tx, ty = to_cell
+        step_x = 1 if tx >= x else -1
+        while x != tx:
+            x += step_x
+            grid[y][x] = TILE
+        step_y = 1 if ty >= y else -1
+        while y != ty:
+            y += step_y
+            grid[y][x] = TILE
+        connected = reachable_from(start)
+        all_walkable = {(x, y) for y in range(GRID_SIZE) for x in range(GRID_SIZE) if grid[y][x] in walkable}
 
 
 def get_all_floor_tiles() -> list:
@@ -399,6 +721,13 @@ def get_spawn_candidates(exclude: Optional[set] = None) -> list:
     return [(x, y) for y in range(GRID_SIZE) for x in range(GRID_SIZE)
             if game_map[y][x] == TILE and (x, y) not in exclude]
 
+
+def protected_start_cells() -> set:
+    """Keep the first room and its immediate exits clear after a transition."""
+    sx, sy = START_POS
+    return {(x, y) for y in range(max(0, sy - 1), min(GRID_SIZE, sy + 3))
+            for x in range(max(0, sx - 1), min(GRID_SIZE, sx + 3))}
+
 # ---------------------------------------------------------------------------
 # Spawn helpers
 # ---------------------------------------------------------------------------
@@ -408,7 +737,7 @@ def spawn_stairs() -> None:
     if current_floor >= BOSS_FLOOR or secret_map_index >= SECRET_MAP_COUNT:
         stairs_pos = {"x": -1, "y": -1}
         return
-    exclude = {(player_state["x"], player_state["y"]), (0, 0)}
+    exclude = {(player_state["x"], player_state["y"]), *protected_start_cells()}
     for c in chests:
         exclude.add((c["x"], c["y"]))
     exclude.add((merchant_state["x"], merchant_state["y"]))
@@ -432,7 +761,7 @@ def spawn_stairs() -> None:
 def spawn_chests() -> None:
     global chests
     chests = []
-    candidates = get_spawn_candidates({(0, 0)})
+    candidates = get_spawn_candidates(protected_start_cells())
     random.shuffle(candidates)
     for i, (x, y) in enumerate(candidates[:CHEST_COUNT]):
         chests.append({"id": i + 1, "x": x, "y": y, "active": True,
@@ -441,7 +770,7 @@ def spawn_chests() -> None:
 
 def spawn_merchant() -> None:
     global merchant_state
-    exclude = {(player_state["x"], player_state["y"]), (0,0),(0,1),(1,0),(1,1)}
+    exclude = {(player_state["x"], player_state["y"]), *protected_start_cells()}
     for c in chests:
         if c["active"]:
             exclude.add((c["x"], c["y"]))
@@ -477,7 +806,7 @@ def spawn_enemies() -> None:
     if current_floor >= BOSS_FLOOR or secret_map_index >= SECRET_MAP_COUNT:
         return
 
-    exclude = {(player_state["x"], player_state["y"])}
+    exclude = {(player_state["x"], player_state["y"]), *protected_start_cells()}
     for c in chests:
         if c["active"]:
             exclude.add((c["x"], c["y"]))
@@ -530,7 +859,7 @@ def spawn_secret_route() -> None:
     secret_door = {"x": -1, "y": -1, "open": False}
     if secret_map_index >= SECRET_MAP_COUNT:
         return
-    exclude = {(player_state["x"], player_state["y"]), (0, 0),
+    exclude = {(player_state["x"], player_state["y"]), *protected_start_cells(),
                (stairs_pos["x"], stairs_pos["y"]),
                (merchant_state["x"], merchant_state["y"])}
     exclude.update((c["x"], c["y"]) for c in chests if c["active"])
@@ -621,7 +950,7 @@ def enter_secret_map(logs: list) -> None:
     secret_map_index += 1
     has_secret_key = False
     current_floor = 1
-    player_state["x"], player_state["y"] = 0, 0
+    player_state["x"], player_state["y"] = START_POS
     player_state["hp"] = min(player_state["max_hp"], player_state["hp"] + max(15, player_state["max_hp"] // 5))
     game_map = generate_bsp_map()
     boss_entity = None
@@ -636,7 +965,7 @@ def enter_secret_map(logs: list) -> None:
         logs.append({"type": "combat", "message": "🏛️ FINAL HARİTA — Hazineyi koruyan Cyber-Dragon uyandı!"})
     else:
         logs.append({"type": "quest", "message": f"🚪 Gizli geçitten geçtin! Harita {secret_map_index}/5"})
-    update_fog(0, 0)
+    update_fog(*START_POS)
 
 # ---------------------------------------------------------------------------
 # Quest
@@ -696,9 +1025,9 @@ def recalc_stats() -> None:
             atk += slot_item.get("atk", 0)
             dfn += slot_item.get("def", 0)
     # Add level bonus
-    atk += (player_state["level"] - 1) * 2
+    atk += (player_state["level"] - 1) * 2 + player_state["level_attack_bonus"]
     player_state["attack_power"] = atk
-    player_state["damage_reduction"] = dfn
+    player_state["damage_reduction"] = dfn + player_state["level_defense_bonus"]
 
 
 def roll_item_drop() -> Optional[dict]:
@@ -729,9 +1058,10 @@ def add_to_inventory(item: dict) -> bool:
 def descend_floor(logs: list) -> None:
     global current_floor, game_map, next_enemy_id, boss_entity
     current_floor += 1
+    player_state["stats"]["highest_floor"] = max(player_state["stats"].get("highest_floor", 1), current_floor)
     heal = max(10, player_state["max_hp"] // 5)
     player_state["hp"] = min(player_state["max_hp"], player_state["hp"] + heal)
-    player_state["x"], player_state["y"] = 0, 0
+    player_state["x"], player_state["y"] = START_POS
 
     game_map = generate_bsp_map()
     boss_entity = None
@@ -752,19 +1082,20 @@ def descend_floor(logs: list) -> None:
         logs.append({"type": "exp",
                      "message": f"🔽 Kat {current_floor}/{MAX_FLOOR}'e indin! +{heal} HP iyileşti."})
 
-    update_fog(0, 0)
+    update_fog(*START_POS)
 
 # ---------------------------------------------------------------------------
 # Core game logic
 # ---------------------------------------------------------------------------
 def init_game_with_class(cls: str) -> None:
     global game_map, game_over, game_won, boss_entity, next_enemy_id, character_class
-    global class_selected, current_floor, equipment, inventory, secret_map_index
+    global class_selected, current_floor, equipment, inventory, secret_map_index, pending_level_ups
     character_class = cls
     class_selected = True
     current_floor = 1
     secret_map_index = 1
     game_won = False
+    pending_level_ups = 0
     boss_entity = None
     equipment = {"weapon": None, "armor": None, "accessory": None}
     inventory = []
@@ -778,8 +1109,12 @@ def init_game_with_class(cls: str) -> None:
         "attack_power": stats["attack_power"],
         "damage_reduction": 0,
         "mp": stats["mp"], "max_mp": stats["max_mp"],
-        "x": 0, "y": 0,
+        "level_attack_bonus": 0, "level_defense_bonus": 0,
+        "level_max_hp_bonus": 0, "level_max_mp_bonus": 0,
+        "unlocked_skills": [], "skill_uses": {}, "ranged_cooldown": 0,
+        "x": START_POS[0], "y": START_POS[1],
         "character_class": cls,
+        "stats": {"enemies_killed": 0, "total_gold_earned": 0, "highest_floor": 1, "games_won": 0},
     })
     game_over = False
     init_daily_quest()
@@ -789,10 +1124,11 @@ def init_game_with_class(cls: str) -> None:
     spawn_stairs()
     spawn_secret_route()
     spawn_enemies()
-    update_fog(0, 0)
+    update_fog(*START_POS)
 
 
 def apply_exp(amount: int) -> dict:
+    global pending_level_ups
     player_state["exp"] += amount
     leveled_up = False
     new_level = None
@@ -802,11 +1138,31 @@ def apply_exp(amount: int) -> dict:
         player_state["max_hp"] += 20
         player_state["hp"] = player_state["max_hp"]
         player_state["exp_to_next"] = int(player_state["exp_to_next"] * 1.5)
+        pending_level_ups += 1
+        unlock_warrior_skills()
         leveled_up = True
         new_level = player_state["level"]
     if leveled_up:
         recalc_stats()
     return {"leveled_up": leveled_up, "new_level": new_level}
+
+
+def unlock_warrior_skills() -> list:
+    if player_state.get("character_class") != "Warrior":
+        return []
+    skills = player_state.setdefault("unlocked_skills", [])
+    newly_unlocked = []
+    for skill_id, skill in WARRIOR_RANGED_SKILLS.items():
+        if player_state["level"] >= skill["level"] and skill_id not in skills:
+            skills.append(skill_id)
+            player_state.setdefault("skill_uses", {})[skill_id] = RANGED_SKILL_MAX_USES
+            newly_unlocked.append(skill_id)
+    return newly_unlocked
+
+
+def require_level_choice() -> None:
+    if pending_level_ups:
+        raise HTTPException(409, detail="Seviye ödülünü seçmelisin")
 
 
 def check_game_over() -> None:
@@ -824,6 +1180,8 @@ def apply_enemy_kill_rewards(enemy: dict, logs: list) -> dict:
     gold_gain = enemy.get("gold", ENEMY_KILL_GOLD)
     exp_gain  = enemy.get("exp",  ENEMY_KILL_EXP)
     player_state["gold"] += gold_gain
+    player_state["stats"]["enemies_killed"] += 1
+    player_state["stats"]["total_gold_earned"] += gold_gain
     apply_exp(exp_gain)
     enemies[:] = [e for e in enemies if e["id"] != enemy["id"]]
     logs.append({"type": "gold",
@@ -879,6 +1237,7 @@ def collect_chest(logs: list) -> None:
         if player_state["x"] != c["x"] or player_state["y"] != c["y"]: continue
         c["active"] = False
         player_state["gold"] += CHEST_GOLD
+        player_state["stats"]["total_gold_earned"] += CHEST_GOLD
         apply_exp(CHEST_EXP)
         logs.append({"type": "gold",
                      "message": f"Hazine buldun! +{CHEST_GOLD} 💰 +{CHEST_EXP} EXP"})
@@ -1030,6 +1389,8 @@ def attack_boss(atk: int, logs: list) -> dict:
         boss_entity["hp"] = 0
         game_won = True
         player_state["gold"] += boss_entity["gold"]
+        player_state["stats"]["total_gold_earned"] += boss_entity["gold"]
+        player_state["stats"]["games_won"] += 1
         apply_exp(boss_entity["exp"])
         logs.append({"type": "quest",
                      "message": "🏆 CYBER-DRAGON YENİLDİ! Zindan fethedildi! ZAFER!"})
@@ -1070,8 +1431,13 @@ def build_status() -> dict:
             "secret_door": {"x": -1, "y": -1, "open": False},
             "at_merchant": False, "at_stairs": False,
             "game_over": False,
+            "pending_level_ups": 0, "level_up_choices": LEVEL_UP_CHOICES,
             "daily_quest": get_daily_quest_status() if daily_quest else {},
             "inventory": [], "equipment": equipment,
+            "authenticated": bool(current_user_id),
+            "username": get_username(current_user_id) if current_user_id else None,
+            "stats": player_state.get("stats", {}),
+            "achievements": account_achievements(),
         }
     return {
         **base,
@@ -1096,11 +1462,21 @@ def build_status() -> dict:
         "at_stairs": is_at_stairs(),
         "game_over": game_over,
         "game_won": game_won,
+        "pending_level_ups": pending_level_ups,
+        "level_up_choices": LEVEL_UP_CHOICES,
         "max_floor": MAX_FLOOR,
         "boss": dict(boss_entity) if boss_entity else None,
         "daily_quest": get_daily_quest_status(),
         "inventory": [dict(i) for i in inventory],
         "equipment": {k: dict(v) if v else None for k, v in equipment.items()},
+        "unlocked_skills": list(player_state.get("unlocked_skills", [])),
+        "skill_uses": dict(player_state.get("skill_uses", {})),
+        "ranged_skills": WARRIOR_RANGED_SKILLS if character_class == "Warrior" else {},
+        "ranged_cooldown": player_state.get("ranged_cooldown", 0),
+        "authenticated": bool(current_user_id),
+        "username": get_username(current_user_id) if current_user_id else None,
+        "stats": player_state.get("stats", {}),
+        "achievements": account_achievements(),
     }
 
 
@@ -1114,15 +1490,64 @@ def require_class_selected():
 
 @app.on_event("startup")
 async def on_startup():
-    global class_selected
-    class_selected = False
-    init_daily_quest()
+    init_database()
+    clear_runtime_state()
 
 
 @app.get("/")
 @app.get("/index.html")
 async def serve_index():
     return FileResponse(BASE_DIR / "index.html")
+
+
+def get_username(user_id: Optional[int]) -> Optional[str]:
+    if not user_id:
+        return None
+    with db_connect() as connection:
+        row = connection.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
+    return row["username"] if row else None
+
+
+@app.post("/api/auth/register")
+async def register(payload: AuthRequest, response: Response):
+    try:
+        with db_connect() as connection:
+            cursor = connection.execute(
+                "INSERT INTO users(username, password_hash, created_at) VALUES (?, ?, ?)",
+                (payload.username, hash_password(payload.password), datetime.now(timezone.utc).isoformat()),
+            )
+            user_id = cursor.lastrowid
+            connection.execute(
+                "INSERT INTO profiles(user_id, state_json, achievements_json) VALUES (?, ?, ?)",
+                (user_id, json.dumps({}), json.dumps([])),
+            )
+    except sqlite3.IntegrityError:
+        raise HTTPException(409, detail="Bu kullanici adi zaten alinmis")
+    load_game_state(user_id)
+    create_session(user_id, response)
+    return {**build_status(), "success": True, "message": "Hesap olusturuldu"}
+
+
+@app.post("/api/auth/login")
+async def login(payload: AuthRequest, response: Response):
+    with db_connect() as connection:
+        row = connection.execute("SELECT id, password_hash FROM users WHERE username = ?", (payload.username,)).fetchone()
+    if not row or not verify_password(payload.password, row["password_hash"]):
+        raise HTTPException(401, detail="Kullanici adi veya parola hatali")
+    load_game_state(int(row["id"]))
+    create_session(int(row["id"]), response)
+    return {**build_status(), "success": True, "message": "Giris yapildi"}
+
+
+@app.post("/api/auth/logout")
+async def logout(request: Request, response: Response):
+    token = request.cookies.get(SESSION_COOKIE)
+    if token:
+        with db_connect() as connection:
+            connection.execute("DELETE FROM sessions WHERE token = ?", (token,))
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    clear_runtime_state()
+    return {"success": True}
 
 
 @app.get("/api/status")
@@ -1159,12 +1584,40 @@ async def select_class(payload: SelectClassRequest):
     init_game_with_class(payload.character_class)
     return build_status()
 
+@app.post("/api/select-level-up")
+async def select_level_up(payload: LevelUpRequest):
+    global pending_level_ups
+    require_class_selected()
+    if not pending_level_ups:
+        raise HTTPException(400, detail="Bekleyen seviye ödülü yok")
+
+    if payload.choice == "power":
+        player_state["level_attack_bonus"] += 5
+        reward = LEVEL_UP_CHOICES["power"]
+    elif payload.choice == "vitality":
+        player_state["level_max_hp_bonus"] += 30
+        player_state["max_hp"] += 30
+        player_state["hp"] += 30
+        reward = LEVEL_UP_CHOICES["vitality"]
+    else:
+        player_state["level_max_mp_bonus"] += 15
+        player_state["max_mp"] += 15
+        player_state["mp"] += 15
+        reward = LEVEL_UP_CHOICES["focus"]
+
+    pending_level_ups -= 1
+    recalc_stats()
+    return {**build_status(), "success": True, "reward": reward}
+
 @app.post("/api/move")
 async def move_player(payload: MoveRequest):
     global game_over
     require_class_selected()
+    require_level_choice()
     if game_over:
         raise HTTPException(400, detail="Oyun bitti")
+    if player_state.get("ranged_cooldown", 0) > 0:
+        player_state["ranged_cooldown"] -= 1
 
     logs: list = []
     battles: list = []
@@ -1239,6 +1692,7 @@ async def move_player(payload: MoveRequest):
 @app.post("/api/buy-item")
 async def buy_item(payload: BuyItemRequest):
     require_class_selected()
+    require_level_choice()
     if game_over:
         raise HTTPException(400, detail="Oyun bitti")
     if not is_at_merchant():
@@ -1273,6 +1727,7 @@ async def buy_item(payload: BuyItemRequest):
 @app.post("/api/cast-fireball")
 async def cast_fireball(payload: FireballRequest):
     require_class_selected()
+    require_level_choice()
     if game_over: raise HTTPException(400, detail="Oyun bitti")
     if player_state["mp"] < FIREBALL_COST:
         raise HTTPException(400, detail="Yetersiz mana")
@@ -1298,6 +1753,65 @@ async def cast_fireball(payload: FireballRequest):
 
     return {**build_status(), "logs": logs,
             "enemy_killed": enemy_killed, "item_drop": item_drop, "success": True}
+
+
+@app.post("/api/ranged-attack")
+async def ranged_attack(payload: RangedAttackRequest):
+    require_class_selected()
+    require_level_choice()
+    if game_over:
+        raise HTTPException(400, detail="Oyun bitti")
+    if character_class != "Warrior":
+        raise HTTPException(403, detail="Bu yetenek sadece Warrior icin")
+    skills = player_state.get("unlocked_skills", [])
+    if not skills:
+        raise HTTPException(403, detail="Henuz menzilli yetenek acilmadi")
+    if player_state.get("ranged_cooldown", 0) > 0:
+        raise HTTPException(400, detail=f"Yetenek beklemede: {player_state['ranged_cooldown']} tur")
+
+    skill_uses = player_state.setdefault("skill_uses", {})
+    skill_id = next((item_id for item_id in reversed(skills)
+                     if skill_uses.setdefault(item_id, RANGED_SKILL_MAX_USES) > 0), None)
+    if not skill_id:
+        raise HTTPException(400, detail="Tum menzilli yeteneklerin kullanim hakki bitti")
+    skill = WARRIOR_RANGED_SKILLS[skill_id]
+    uses_left = skill_uses[skill_id]
+    enemy = find_enemy_by_id(payload.enemy_id)
+    if not enemy:
+        raise HTTPException(400, detail="Dusman bulunamadi")
+    if tile_distance(player_state["x"], player_state["y"], enemy["x"], enemy["y"]) > skill["range"]:
+        raise HTTPException(400, detail="Dusman menzil disinda")
+    if not is_tile_visible(enemy["x"], enemy["y"]):
+        raise HTTPException(400, detail="Dusman gorus alaninda degil")
+
+    logs = [{"type": "combat", "message": f"🏹 {skill['name']}! {enemy['name']}'e {skill['damage']} hasar vurdun."}]
+    enemy["hp"] -= skill["damage"]
+    hit_targets = [enemy]
+    if skill.get("splash"):
+        for nearby in enemies[:]:
+            if nearby["id"] == enemy["id"] or nearby["hp"] <= 0:
+                continue
+            if max(abs(nearby["x"] - enemy["x"]), abs(nearby["y"] - enemy["y"])) <= skill["splash"]:
+                nearby["hp"] -= skill["damage"] // 2
+                hit_targets.append(nearby)
+                logs.append({"type": "combat", "message": f"Patlama {nearby['name']}'e {skill['damage'] // 2} hasar verdi."})
+
+    killed = []
+    total_gold = 0
+    total_exp = 0
+    for target in hit_targets:
+        if target["hp"] <= 0 and target in enemies:
+            rewards = apply_enemy_kill_rewards(target, logs)
+            killed.append(target)
+            total_gold += rewards["gold_gained"]
+            total_exp += rewards["exp_gained"]
+    player_state["ranged_cooldown"] = skill["cooldown"]
+    skill_uses[skill_id] = uses_left - 1
+    return {**build_status(), "logs": logs, "success": True,
+            "skill_id": skill_id, "skill_name": skill["name"],
+            "uses_left": skill_uses[skill_id],
+            "enemy_killed": bool(killed), "enemies_killed": len(killed),
+            "gold_gained": total_gold, "exp_gained": total_exp}
 
 
 @app.post("/api/equip")
@@ -1341,7 +1855,7 @@ async def unequip_item(payload: UnequipRequest):
 @app.post("/api/reset")
 async def reset_game():
     global class_selected, character_class, game_map, enemies, chests
-    global game_over, game_won, boss_entity, current_floor, equipment, inventory
+    global game_over, game_won, pending_level_ups, boss_entity, current_floor, equipment, inventory
     global secret_map_index, secret_key, secret_door, has_secret_key
     class_selected = False
     character_class = None
@@ -1350,6 +1864,7 @@ async def reset_game():
     chests = []
     game_over = False
     game_won = False
+    pending_level_ups = 0
     boss_entity = None
     current_floor = 1
     secret_map_index = 1
