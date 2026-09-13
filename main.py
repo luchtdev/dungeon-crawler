@@ -1491,6 +1491,11 @@ async def serve_index():
     return FileResponse(BASE_DIR / "index.html")
 
 
+@app.get("/icon.svg")
+async def serve_icon():
+    return FileResponse(BASE_DIR / "icon.svg", media_type="image/svg+xml")
+
+
 def get_username(user_id: Optional[int]) -> Optional[str]:
     if not user_id:
         return None
