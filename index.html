@@ -259,10 +259,12 @@
       .action-btn .action-icon { font-size: 0.8rem; }
     }
     @media (max-width: 430px) and (min-height: 700px) {
-      .minimap-panel { padding: 6px 8px; }
-      #minimapCanvas { width: 72px; height: 72px; }
+      .map-section { gap: 4px; padding: 4px 4px; }
+      .canvas-frame { padding: 2px; }
+      .minimap-panel { padding: 4px 8px; }
+      #minimapCanvas { width: 60px; height: 60px; }
       .log-section { margin-bottom: 6px; }
-      .combat-log { height: 72px; }
+      .combat-log { height: 64px; }
       .controls-section { min-height: 150px; }
       .dpad { grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); gap: 3px; }
       .action-btn.attack { width: 44px; height: 44px; }
@@ -1283,9 +1285,9 @@
       var frame = canvas.parentElement;
       var minimapHeight = minimapCanvas ? minimapCanvas.offsetHeight + 8 : 0;
       var w = frame.clientWidth - 4;
-      var h = mapSection.clientHeight - 16 - minimapHeight;
+      var h = mapSection.clientHeight - 10 - minimapHeight;
       if (w <= 0 || h <= 0) { requestAnimationFrame(resizeCanvas); return; }
-      var size = Math.min(w, h, window.innerWidth - 20);
+      var size = Math.min(w, h, window.innerWidth - 8);
       cellSize = Math.max(1, Math.floor(size / VIEW_SIZE));
       var cs = cellSize * VIEW_SIZE;
       canvas.width = cs; canvas.height = cs;
