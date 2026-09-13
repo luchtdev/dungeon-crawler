@@ -87,7 +87,7 @@
       background: rgba(255,34,68,0.12); border: 1px solid rgba(255,34,68,0.35); }
     .class-error.visible { display: block; }
     .game-ui { display: flex; flex-direction: column; flex: 1; min-height: 0;
-      width: 100%; max-width: 620px; margin: 0 auto; overflow: hidden; }
+      width: 100%; max-width: 430px; margin: 0 auto; overflow: hidden; }
     .game-ui.hidden { display: none; }
     .hud-bar {
       flex-shrink: 0; display: flex; align-items: stretch; justify-content: space-between;
@@ -263,7 +263,11 @@
       #minimapCanvas { width: 72px; height: 72px; }
       .log-section { margin-bottom: 6px; }
       .combat-log { height: 72px; }
-      .controls-section { min-height: 158px; }
+      .controls-section { min-height: 150px; }
+      .dpad { grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); gap: 3px; }
+      .action-btn.attack { width: 44px; height: 44px; }
+      .action-btn.status { left: 6px; width: 68px; }
+      .action-btn.shop { right: 6px; width: 84px; min-height: 52px; }
     }
     .status-overlay, .shop-overlay, .game-over-overlay, .victory-overlay, .level-up-overlay {
       display: none; position: fixed; inset: 0; z-index: 900;
