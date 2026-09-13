@@ -235,8 +235,9 @@
     .action-btn .action-icon { font-size: 0.9rem; line-height: 1; }
     .action-btn.attack { left: 50%; top: 50%; width: 48px; height: 48px;
       border-radius: 50%; transform: translate(-50%, -50%); }
-    .action-btn.status { left: 8px; top: 50%; width: 72px; transform: translateY(-50%); }
-    .action-btn.shop { right: 8px; top: 50%; width: 92px; min-height: 58px; transform: translateY(-50%); }
+    .action-btn.status, .action-btn.shop { top: 50%; width: 88px; height: 58px; min-height: 0; transform: translateY(-50%); }
+    .action-btn.status { left: 8px; }
+    .action-btn.shop { right: 8px; }
     .action-btn.attack:active:not(:disabled) { transform: translate(-50%, -50%) scale(0.93); }
     .action-btn.status:active:not(:disabled), .action-btn.shop:active:not(:disabled) { transform: translateY(-50%) scale(0.93); }
     .action-btn.attack { color: #ff8800; background: rgba(255,120,0,0.1); border: 1px solid rgba(255,120,0,0.45); }
@@ -265,11 +266,12 @@
       #minimapCanvas { width: 60px; height: 60px; }
       .log-section { margin-bottom: 6px; }
       .combat-log { height: 64px; }
-      .controls-section { min-height: 150px; }
-      .dpad { grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); gap: 3px; }
-      .action-btn.attack { width: 44px; height: 44px; }
-      .action-btn.status { left: 6px; width: 68px; }
-      .action-btn.shop { right: 6px; width: 84px; min-height: 52px; }
+      .controls-section { min-height: 166px; }
+      .dpad { grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(3, 48px); gap: 4px; }
+      .action-btn.attack { width: 48px; height: 48px; }
+      .action-btn.status, .action-btn.shop { width: 78px; height: 52px; }
+      .action-btn.status { left: 6px; }
+      .action-btn.shop { right: 6px; }
     }
     .status-overlay, .shop-overlay, .game-over-overlay, .victory-overlay, .level-up-overlay {
       display: none; position: fixed; inset: 0; z-index: 900;
