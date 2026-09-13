@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <link rel="apple-touch-icon" sizes="180x180" href="./icon.png">
-<link rel="icon" type="image/png" href="/icon.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Cyber Dungeon RPG</title>
@@ -21,7 +19,7 @@
       --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
     html, body {
-      width: 100%; height: 100%; height: 100dvh; min-height: 100svh; overflow: hidden;
+      height: 100%; height: 100dvh; overflow: hidden;
       background: var(--bg-dark); color: var(--text-primary);
       font-family: 'Share Tech Mono', monospace;
       touch-action: manipulation; -webkit-tap-highlight-color: transparent;
@@ -58,73 +56,6 @@
     .auth-submit:disabled { opacity: 0.5; cursor: wait; }
     .auth-error { min-height: 18px; color: #ff6688; font-size: 0.65rem; text-align: center; }
     .auth-hint { color: var(--text-muted); font-size: 0.6rem; line-height: 1.5; text-align: center; }
-    .main-menu-overlay { display: none; position: fixed; inset: 0; z-index: 1150; overflow-y: auto;
-      background: rgba(6,8,15,0.98); backdrop-filter: blur(12px); padding: 18px 14px; }
-    .main-menu-overlay.active { display: block; }
-    .main-menu { width: 100%; max-width: 430px; margin: 0 auto; }
-    .main-menu-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
-    .main-menu-user { color: var(--text-muted); font-size: 0.62rem; }
-    .main-menu-user strong { display: block; color: var(--neon-cyan); font-size: 0.82rem; margin-top: 4px; }
-    .menu-logout { border: 1px solid rgba(255,68,102,0.45); border-radius: 6px; padding: 7px 9px; background: rgba(255,68,102,0.08); color: #ff6688; cursor: pointer; font-size: 0.56rem; }
-    .continue-card { width: 100%; padding: 15px; border: 1px solid rgba(57,255,20,0.48); border-radius: 10px; background: linear-gradient(135deg, rgba(57,255,20,0.12), rgba(0,240,255,0.06)); color: var(--text-primary); text-align: left; cursor: pointer; box-shadow: 4px 4px 0 #0a0809; }
-    .continue-card:disabled { opacity: 0.42; cursor: not-allowed; filter: grayscale(0.7); }
-    .continue-label { color: var(--neon-green); font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; }
-    .continue-title { display: block; margin: 8px 0 5px; font-size: 1rem; font-weight: 800; }
-    .continue-meta { color: var(--text-muted); font-size: 0.62rem; }
-    .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-    .menu-action { min-height: 74px; padding: 10px; border: 1px solid rgba(0,240,255,0.3); border-radius: 8px; background: rgba(13,18,32,0.9); color: var(--text-primary); cursor: pointer; text-align: left; }
-    .menu-action:active { transform: scale(0.98); border-color: var(--neon-cyan); }
-    .menu-action-icon { display: block; font-size: 1.25rem; margin-bottom: 7px; }
-    .menu-action-title { display: block; color: var(--neon-cyan); font-size: 0.62rem; font-weight: 800; }
-    .menu-action-desc { display: block; color: var(--text-muted); font-size: 0.52rem; margin-top: 4px; }
-    .menu-section-title { color: var(--text-muted); font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase; margin: 18px 0 7px; }
-    .menu-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-    .menu-stat { padding: 8px 4px; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; background: rgba(0,0,0,0.24); text-align: center; }
-    .menu-stat-value { display: block; color: var(--neon-yellow); font-size: 0.72rem; font-weight: 800; }
-    .menu-stat-label { display: block; color: var(--text-muted); font-size: 0.43rem; margin-top: 4px; }
-    .achievement-overlay { display: none; position: fixed; inset: 0; z-index: 1250; padding: 14px; overflow-y: auto; background: rgba(6,8,15,0.96); backdrop-filter: blur(10px); }
-    .achievement-overlay.active { display: block; }
-    .achievement-panel { width: 100%; max-width: 390px; margin: 0 auto; padding: 16px; border: 1px solid rgba(255,230,0,0.4); border-radius: 10px; background: var(--bg-panel); }
-    .achievement-panel .modal-header { margin-bottom: 12px; }
-    .achievement-summary { color: var(--text-muted); font-size: 0.62rem; margin-bottom: 10px; }
-    .back-menu-btn { display: block; width: 100%; margin-top: 12px; padding: 10px; border: 1px solid rgba(0,240,255,0.3); border-radius: 6px; background: rgba(0,240,255,0.08); color: var(--neon-cyan); cursor: pointer; font-size: 0.62rem; }
-    .settings-overlay { display: none; position: fixed; inset: 0; z-index: 1250; padding: 14px; overflow-y: auto; background: rgba(6,8,15,0.96); backdrop-filter: blur(10px); }
-    .settings-overlay.active { display: block; }
-    .settings-panel { width: 100%; max-width: 390px; margin: 0 auto; padding: 16px; border: 1px solid rgba(255,0,170,0.4); border-radius: 10px; background: var(--bg-panel); }
-    .settings-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
-    .settings-option:last-of-type { border-bottom: 0; }
-    .settings-option-copy { display: flex; flex-direction: column; gap: 4px; }
-    .settings-option-title { color: var(--text-primary); font-size: 0.68rem; font-weight: 700; }
-    .settings-option-desc { color: var(--text-muted); font-size: 0.55rem; }
-    .settings-switch { position: relative; width: 44px; height: 24px; flex: 0 0 auto; }
-    .settings-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
-    .settings-slider { position: absolute; inset: 0; border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; background: rgba(0,0,0,0.35); cursor: pointer; transition: background 0.2s, border-color 0.2s; }
-    .settings-slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; border-radius: 50%; background: var(--text-muted); transition: transform 0.2s, background 0.2s; }
-    .settings-switch input:checked + .settings-slider { border-color: var(--neon-green); background: rgba(57,255,20,0.2); }
-    .settings-switch input:checked + .settings-slider::before { transform: translateX(20px); background: var(--neon-green); }
-    .settings-note { margin-top: 12px; color: var(--text-muted); font-size: 0.55rem; line-height: 1.5; text-align: center; }
-    .howto-overlay { display: none; position: fixed; inset: 0; z-index: 1250; padding: 14px; overflow-y: auto; background: rgba(6,8,15,0.96); backdrop-filter: blur(10px); }
-    .howto-overlay.active { display: block; }
-    .howto-panel { width: 100%; max-width: 410px; margin: 0 auto; padding: 16px; border: 1px solid rgba(0,240,255,0.4); border-radius: 10px; background: var(--bg-panel); }
-    .howto-section { padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
-    .howto-section:last-of-type { border-bottom: 0; }
-    .howto-title { margin-bottom: 5px; color: var(--neon-cyan); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; }
-    .howto-text { color: var(--text-muted); font-size: 0.61rem; line-height: 1.65; }
-    .howto-key { display: inline-block; padding: 2px 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: var(--neon-yellow); background: rgba(0,0,0,0.3); }
-    .skill-list { display: flex; flex-direction: column; gap: 5px; }
-    .skill-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; background: rgba(0,0,0,0.22); }
-    .skill-item.locked { opacity: 0.4; }
-    .skill-item.unlocked { border-color: rgba(255,230,0,0.4); background: rgba(255,230,0,0.07); }
-    .skill-level { width: 30px; color: var(--neon-yellow); font-size: 0.54rem; font-weight: 700; }
-    .skill-copy { display: flex; flex-direction: column; gap: 2px; }
-    .skill-name { color: var(--text-primary); font-size: 0.62rem; font-weight: 700; }
-    .skill-description { color: var(--text-muted); font-size: 0.52rem; }
-    .pause-overlay { display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center; padding: 16px; background: rgba(6,8,15,0.82); backdrop-filter: blur(8px); }
-    .pause-overlay.active { display: flex; }
-    .pause-panel { width: 100%; max-width: 330px; padding: 24px 18px; border: 2px solid var(--neon-yellow); border-radius: 10px; background: var(--bg-panel); box-shadow: 0 0 36px rgba(255,230,0,0.22), 5px 5px 0 #0a0809; text-align: center; }
-    .pause-title { color: var(--neon-yellow); font-size: 1.25rem; font-weight: 900; letter-spacing: 0.14em; margin-bottom: 8px; }
-    .pause-subtitle { color: var(--text-muted); font-size: 0.68rem; margin-bottom: 18px; }
-    .pause-resume { width: 100%; padding: 12px; border: 0; border-radius: 7px; background: var(--neon-yellow); color: var(--bg-dark); cursor: pointer; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; }
     .class-modal { width: 100%; max-width: 420px; text-align: center; }
     .class-title { font-size: 1.2rem; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase;
       background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
@@ -149,7 +80,7 @@
       background: rgba(255,34,68,0.12); border: 1px solid rgba(255,34,68,0.35); }
     .class-error.visible { display: block; }
     .game-ui { display: flex; flex-direction: column; flex: 1; min-height: 0;
-      width: 100%; max-width: 520px; margin: 0 auto; overflow: hidden; }
+      width: 100%; max-width: 620px; margin: 0 auto; overflow: hidden; }
     .game-ui.hidden { display: none; }
     .hud-bar {
       flex-shrink: 0; display: flex; align-items: stretch; justify-content: space-between;
@@ -179,7 +110,6 @@
       cursor: pointer; transition: transform 0.12s ease;
     }
     .settings-pill:active { transform: scale(0.96); }
-    .pause-pill { border-color: rgba(255,230,0,0.4); background: rgba(255,230,0,0.08); color: var(--neon-yellow); }
     .stat-badge { flex: 1; min-width: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: center; gap: 1px; padding: 4px 3px;
       background: var(--bg-panel); border-radius: 6px; font-variant-numeric: tabular-nums; }
@@ -214,11 +144,11 @@
     .hud-boss .hud-panel-title { color: var(--neon-orange); }
     .hud-boss-fill { background: linear-gradient(90deg, #ff2244, #ff8800); box-shadow: 0 0 8px rgba(255,102,0,0.5); }
     .map-section { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      position: relative; padding: 6px 8px; overflow: hidden; gap: 8px; }
+      padding: 6px 8px; overflow: hidden; gap: 8px; }
     .canvas-frame { width: 100%; max-width: 100%; display: flex; align-items: center; justify-content: center;
       border: 2px solid rgba(0,240,255,0.35); border-radius: 12px;
       box-shadow: 0 0 28px rgba(0,240,255,0.12), inset 0 0 30px rgba(0,0,0,0.5);
-      background: #05080f; padding: 3px; position: relative; overflow: hidden; flex: 0 0 auto; }
+      background: #05080f; padding: 3px; position: relative; overflow: hidden; }
     .canvas-frame::before {
       content: ''; position: absolute; inset: 4px; border-radius: 10px; border: 1px solid rgba(0,240,255,0.12); pointer-events: none;
     }
@@ -226,10 +156,9 @@
       background: radial-gradient(ellipse at center, transparent 52%, rgba(0,0,0,0.42) 100%); }
     #gameCanvas { display: block; max-width: 100%; image-rendering: pixelated; border-radius: 8px; }
     .minimap-panel {
-      position: absolute; right: 10px; bottom: 10px; z-index: 5;
-      width: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
       background: rgba(13,18,32,0.85); border: 1px solid rgba(57,255,20,0.22); border-radius: 10px;
-      padding: 5px; box-shadow: inset 0 0 18px rgba(0,0,0,0.25);
+      padding: 7px 8px; box-shadow: inset 0 0 18px rgba(0,0,0,0.25);
     }
     .mini-label {
       font-size: 0.48rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--neon-green);
@@ -251,13 +180,13 @@
       30% { transform: translate(4px,3px); } 50% { transform: translate(-3px,4px); }
       70% { transform: translate(3px,-2px); } 90% { transform: translate(-2px,2px); }
       100% { transform: translate(0,0); } }
-    .log-section { flex-shrink: 0; margin: 0 8px 5px;
+    .log-section { flex-shrink: 0; align-self: center; width: calc(100% - 24px); max-width: 600px; margin: 0 auto 10px;
       border: 1px solid rgba(255,0,170,0.3); border-radius: 8px;
       background: rgba(0,0,0,0.5); overflow: hidden; }
     .log-header { padding: 4px 10px; font-size: 0.55rem; font-weight: 700;
       letter-spacing: 0.12em; text-transform: uppercase; color: var(--neon-magenta);
       border-bottom: 1px solid rgba(255,0,170,0.2); background: rgba(255,0,170,0.05); }
-    .combat-log { height: 68px; overflow-y: auto; padding: 6px 10px;
+    .combat-log { height: 96px; overflow-y: auto; padding: 8px 10px;
       font-family: 'Share Tech Mono', monospace; font-size: 0.64rem; line-height: 1.65;
       -webkit-overflow-scrolling: touch; }
     .log-entry { padding: 1px 0; animation: fadeIn 0.2s ease; }
@@ -270,8 +199,9 @@
     .log-msg.magic  { color: #ff8800; }
     .log-msg.quest  { color: var(--neon-green); font-weight: 700; }
     .log-msg.item   { color: #cc88ff; }
-    .controls-section { flex-shrink: 0; padding: 4px 8px calc(8px + var(--safe-bottom));
-      display: grid; grid-template-columns: 148px 1fr; align-items: center; gap: 8px;
+    .controls-section { position: relative; flex-shrink: 0; min-height: 164px;
+      padding: 4px 8px calc(8px + var(--safe-bottom));
+      display: flex; align-items: center; justify-content: center;
       border-top: 1px solid rgba(0,240,255,0.12); background: rgba(13,18,32,0.95); }
     .dpad-row { display: flex; align-items: center; justify-content: center; }
     .dpad { display: grid; grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(3, 48px);
@@ -284,19 +214,24 @@
       box-shadow: 0 0 14px rgba(0,240,255,0.4); }
     .dpad-btn.up    { grid-column:2; grid-row:1; }
     .dpad-btn.left  { grid-column:1; grid-row:2; }
-    .dpad-btn.center{ grid-column:2; grid-row:2; font-size:0.45rem; font-weight:700;
-      color:var(--neon-magenta); background:rgba(255,0,170,0.06); border-color:rgba(255,0,170,0.25); cursor:default; }
+    .dpad-btn.center{ grid-column:2; grid-row:2; visibility: hidden; }
     .dpad-btn.right { grid-column:3; grid-row:2; }
     .dpad-btn.down  { grid-column:2; grid-row:3; }
-    .action-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-    .action-btn { min-height: 62px; padding: 8px 4px;
+    .action-row { display: contents; }
+    .action-btn { position: absolute; z-index: 2; min-height: 42px; padding: 4px 2px;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 2px; border-radius: 10px; cursor: pointer; touch-action: none;
-      font-size: 0.55rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase;
+      font-size: 0.46rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
       transition: transform 0.07s, opacity 0.12s; }
     .action-btn:active:not(:disabled) { transform: scale(0.93); }
     .action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-    .action-btn .action-icon { font-size: 1.15rem; line-height: 1; }
+    .action-btn .action-icon { font-size: 0.9rem; line-height: 1; }
+    .action-btn.attack { left: 50%; top: 50%; width: 48px; height: 48px;
+      border-radius: 50%; transform: translate(-50%, -50%); }
+    .action-btn.status { left: 8px; top: 50%; width: 72px; transform: translateY(-50%); }
+    .action-btn.shop { right: 8px; top: 50%; width: 92px; min-height: 58px; transform: translateY(-50%); }
+    .action-btn.attack:active:not(:disabled) { transform: translate(-50%, -50%) scale(0.93); }
+    .action-btn.status:active:not(:disabled), .action-btn.shop:active:not(:disabled) { transform: translateY(-50%) scale(0.93); }
     .action-btn.attack { color: #ff8800; background: rgba(255,120,0,0.1); border: 1px solid rgba(255,120,0,0.45); }
     .action-btn.status { color: var(--neon-cyan); background: rgba(0,240,255,0.07); border: 1px solid rgba(0,240,255,0.4); }
     .action-btn.shop   { color: var(--neon-green); background: rgba(57,255,20,0.07); border: 1px solid rgba(57,255,20,0.4); }
@@ -304,70 +239,24 @@
       .map-section { gap: 5px; padding-top: 4px; }
       .minimap-panel { padding: 4px 8px; }
       #minimapCanvas { width: 72px; height: 72px; }
-      .combat-log { height: 52px; }
+      .combat-log { height: 76px; }
       .controls-section { padding-top: 3px; }
-      .action-btn { min-height: 54px; }
+      .action-btn { min-height: 38px; }
     }
     @media (max-width: 360px) {
-      .controls-section { grid-template-columns: 140px 1fr; gap: 5px; padding-left: 5px; padding-right: 5px; }
+      .controls-section { min-height: 154px; padding-left: 5px; padding-right: 5px; }
       .dpad { grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); gap: 3px; }
-      .action-row { gap: 4px; }
-      .action-btn { font-size: 0.5rem; }
-      .action-btn .action-icon { font-size: 1rem; }
+      .action-btn.status { left: 5px; width: 64px; }
+      .action-btn.shop { right: 5px; width: 76px; }
+      .action-btn { font-size: 0.42rem; }
+      .action-btn .action-icon { font-size: 0.8rem; }
     }
-    @media (max-width: 430px) {
-      .hud-topline { gap: 4px; padding: 6px 7px 5px; }
-      .character-avatar { width: 30px; height: 30px; font-size: 1rem; }
-      .identity-kicker { font-size: 0.4rem; }
-      .identity-name { font-size: 0.62rem; }
-      .menu-tag { padding: 4px 5px; font-size: 0.45rem; }
-      .settings-pill { padding: 5px 6px; font-size: 0.48rem; }
-      .hud-bar { gap: 3px; padding: 5px 6px 4px; }
-      .stat-badge { padding: 3px 2px; }
-      .stat-badge .badge-label { font-size: 0.4rem; }
-      .stat-badge .badge-value { font-size: 0.62rem; }
-      .hud-panels { gap: 4px; padding: 4px 6px 0; }
-      .hud-panel { padding: 5px 6px; }
-      .hud-panel-title { margin-bottom: 3px; font-size: 0.44rem; }
-      .hud-panel-value, .hud-panel-meta { font-size: 0.45rem; }
-      .map-section { gap: 4px; padding: 4px 6px; }
-      .canvas-frame { padding: 2px; border-radius: 8px; }
-      #gameCanvas { border-radius: 5px; }
-      .minimap-panel { right: 6px; bottom: 6px; min-height: 0; padding: 4px; border-radius: 7px; }
-      #minimapCanvas { width: 54px; height: 54px; border-radius: 5px; }
-      .mini-label, .mini-legend { font-size: 0.4rem; }
-      .log-section { margin: 0 6px 3px; }
-      .log-header { padding: 3px 7px; font-size: 0.45rem; }
-      .combat-log { height: 44px; padding: 3px 7px; font-size: 0.54rem; line-height: 1.45; }
-      .controls-section { grid-template-columns: 126px 1fr; gap: 5px; padding: 3px 6px calc(5px + var(--safe-bottom)); }
-      .dpad { grid-template-columns: repeat(3, 38px); grid-template-rows: repeat(3, 38px); gap: 3px; }
-      .dpad-btn { border-radius: 8px; font-size: 0.9rem; }
-      .action-row { gap: 4px; }
-      .action-btn { min-height: 52px; padding: 5px 2px; border-radius: 8px; font-size: 0.45rem; letter-spacing: 0.05em; }
-      .action-btn .action-icon { font-size: 0.95rem; }
-      .main-menu-overlay { padding: 14px 10px calc(14px + var(--safe-bottom)); }
-      .main-menu-head { margin-bottom: 12px; }
-      .menu-stats { gap: 3px; }
-    }
-    @media (max-height: 740px) and (max-width: 430px) {
-      .hud-panels { display: none; }
-      .map-section { padding-top: 3px; }
-      .minimap-panel { right: 6px; bottom: 6px; min-height: 0; }
-      #minimapCanvas { width: 46px; height: 46px; }
-      .combat-log { height: 36px; }
-    }
-    @media (orientation: landscape) and (max-height: 600px) {
-      .game-ui { max-width: 900px; }
-      .hud-panels { display: none; }
-      .map-section { padding: 3px 8px; }
-      .minimap-panel { display: flex; right: 8px; bottom: 6px; }
-      .controls-section { grid-template-columns: 130px 1fr; padding: 2px 8px calc(3px + var(--safe-bottom)); }
-      .dpad { grid-template-columns: repeat(3, 34px); grid-template-rows: repeat(3, 34px); gap: 2px; }
-      .dpad-btn { border-radius: 6px; font-size: 0.8rem; }
-      .action-btn { min-height: 46px; padding: 3px 2px; }
-      .action-btn .action-icon { font-size: 0.9rem; }
-      .log-section { margin-bottom: 2px; }
-      .combat-log { height: 28px; padding: 2px 8px; font-size: 0.5rem; line-height: 1.25; }
+    @media (max-width: 430px) and (min-height: 700px) {
+      .minimap-panel { padding: 6px 8px; }
+      #minimapCanvas { width: 72px; height: 72px; }
+      .log-section { margin-bottom: 6px; }
+      .combat-log { height: 72px; }
+      .controls-section { min-height: 158px; }
     }
     .status-overlay, .shop-overlay, .game-over-overlay, .victory-overlay, .level-up-overlay {
       display: none; position: fixed; inset: 0; z-index: 900;
@@ -561,73 +450,6 @@
       </form>
     </div>
   </div>
-  <div class="main-menu-overlay" id="mainMenuOverlay">
-    <main class="main-menu">
-      <div class="main-menu-head">
-        <div class="main-menu-user">Oyuncu hesabı<strong id="menuUsername">-</strong></div>
-        <button type="button" class="menu-logout" id="menuLogoutBtn">Çıkış Yap</button>
-      </div>
-      <div class="class-title">CYBER DUNGEON</div>
-      <button type="button" class="continue-card" id="continueBtn">
-        <span class="continue-label">Kaldığın Yerden Devam Et</span>
-        <strong class="continue-title" id="continueTitle">Kayıt bulunamadı</strong>
-        <span class="continue-meta" id="continueMeta">Yeni bir macera başlat.</span>
-      </button>
-      <div class="menu-grid">
-        <button type="button" class="menu-action" id="newGameBtn"><span class="menu-action-icon">&#x2694;&#xFE0F;</span><span class="menu-action-title">Yeni Oyun</span><span class="menu-action-desc">Yeni sınıf seç ve başla</span></button>
-        <button type="button" class="menu-action" id="characterBtn"><span class="menu-action-icon">&#x1F464;</span><span class="menu-action-title">Karakterim</span><span class="menu-action-desc">İstatistiklerini görüntüle</span></button>
-        <button type="button" class="menu-action" id="achievementsBtn"><span class="menu-action-icon">&#x1F3C6;</span><span class="menu-action-title">Başarımlar</span><span class="menu-action-desc">Açtığın kupaları gör</span></button>
-        <button type="button" class="menu-action" id="menuSettingsBtn"><span class="menu-action-icon">&#x2699;&#xFE0F;</span><span class="menu-action-title">Ayarlar</span><span class="menu-action-desc">Ses ve ekran tercihleri</span></button>
-        <button type="button" class="menu-action" id="howToBtn"><span class="menu-action-icon">&#x2753;</span><span class="menu-action-title">Nasıl Oynanır?</span><span class="menu-action-desc">Kontroller ve oyun sistemleri</span></button>
-      </div>
-      <div class="menu-section-title">Hesap Özeti</div>
-      <div class="menu-stats">
-        <div class="menu-stat"><span class="menu-stat-value" id="menuLevel">1</span><span class="menu-stat-label">Seviye</span></div>
-        <div class="menu-stat"><span class="menu-stat-value" id="menuFloor">1</span><span class="menu-stat-label">En yüksek kat</span></div>
-        <div class="menu-stat"><span class="menu-stat-value" id="menuKills">0</span><span class="menu-stat-label">Düşman</span></div>
-        <div class="menu-stat"><span class="menu-stat-value" id="menuAchievementCount">0/5</span><span class="menu-stat-label">Başarım</span></div>
-      </div>
-    </main>
-  </div>
-  <div class="achievement-overlay" id="achievementOverlay">
-    <div class="achievement-panel">
-      <div class="modal-header"><div class="modal-title" style="color:var(--neon-yellow)">&#x1F3C6; Başarımlar</div><button type="button" class="modal-close" id="achievementClose">&#x2715;</button></div>
-      <div class="achievement-summary" id="achievementSummary">0/5 başarım açıldı.</div>
-      <div class="achievement-list" id="menuAchievementList"></div>
-      <button type="button" class="back-menu-btn" id="backMenuBtn">Ana Menüye Dön</button>
-    </div>
-  </div>
-  <div class="settings-overlay" id="settingsOverlay">
-    <div class="settings-panel">
-      <div class="modal-header"><div class="modal-title" style="color:var(--neon-magenta)">&#x2699; Ayarlar</div><button type="button" class="modal-close" id="settingsClose">&#x2715;</button></div>
-      <label class="settings-option"><span class="settings-option-copy"><span class="settings-option-title">Ses efektleri</span><span class="settings-option-desc">Saldırı, hareket ve ödül sesleri</span></span><span class="settings-switch"><input type="checkbox" id="effectsToggle"><span class="settings-slider"></span></span></label>
-      <label class="settings-option"><span class="settings-option-copy"><span class="settings-option-title">Müzik</span><span class="settings-option-desc">Neon zindan arka plan melodisi</span></span><span class="settings-switch"><input type="checkbox" id="musicToggle"><span class="settings-slider"></span></span></label>
-      <label class="settings-option"><span class="settings-option-copy"><span class="settings-option-title">Titreşim</span><span class="settings-option-desc">Mobil cihazlarda eylem geri bildirimi</span></span><span class="settings-switch"><input type="checkbox" id="vibrationToggle"><span class="settings-slider"></span></span></label>
-      <label class="settings-option"><span class="settings-option-copy"><span class="settings-option-title">Ekran titremesi</span><span class="settings-option-desc">Hasar ve boss saldırılarında sarsıntı efekti</span></span><span class="settings-switch"><input type="checkbox" id="shakeToggle"><span class="settings-slider"></span></span></label>
-      <div class="settings-note">Tercihler bu cihazda otomatik olarak saklanır.</div>
-    </div>
-  </div>
-  <div class="howto-overlay" id="howToOverlay">
-    <div class="howto-panel">
-      <div class="modal-header"><div class="modal-title" style="color:var(--neon-cyan)">&#x2753; Nasıl Oynanır?</div><button type="button" class="modal-close" id="howToClose">&#x2715;</button></div>
-      <section class="howto-section"><div class="howto-title">&#x1F3AF; Amaç</div><p class="howto-text">100 katlı Cyber Dungeon'da ilerle, düşmanları yen, hazineleri topla ve son kattaki Cyber-Dragon'u mağlup et.</p></section>
-      <section class="howto-section"><div class="howto-title">&#x1F5FA; Hareket</div><p class="howto-text">Mobilde D-pad tuşlarını, bilgisayarda <span class="howto-key">W A S D</span> veya ok tuşlarını kullan. Haritadaki merdivenlere ulaşarak bir sonraki kata in.</p></section>
-      <section class="howto-section"><div class="howto-title">&#x2694;&#xFE0F; Savaş</div><p class="howto-text">Düşmana hareket ederek yakın saldırı yapabilirsin. Yakındaki düşmanlara <strong>Alev Topu</strong> ile uzaktan saldır; bunun için MP gerekir. Her saldırıdan sonra düşmanların hamlesi gelir.</p></section>
-      <section class="howto-section"><div class="howto-title">&#x1F464; Sınıflar</div><p class="howto-text"><strong>Warrior</strong> yüksek HP ile dayanıklıdır. <strong>Mage</strong> yüksek MP ve büyü gücüne sahiptir. <strong>Rogue</strong> daha fazla başlangıç altınıyla başlar.</p></section>
-      <section class="howto-section"><div class="howto-title">&#x2B50; Seviye ve yetenekler</div><p class="howto-text">Düşmanları yenerek ve sandıkları açarak EXP kazan. Seviye atlayınca üç ödülden birini seç: <strong>Güç</strong> (+5 ATK), <strong>Dayanıklılık</strong> (+30 HP) veya <strong>Odak</strong> (+15 MP).</p></section>
-      <section class="howto-section"><div class="howto-title">&#x1F392; Ekipman ve tüccar</div><p class="howto-text">Düşmanlardan silah, zırh ve aksesuar düşebilir. Durum ekranından eşyaları kuşan. Tüccarın yanında durduğunda dükkândan can, mana ve geliştirme satın alabilirsin.</p></section>
-      <section class="howto-section"><div class="howto-title">&#x1F4CB; Görev ve gizli yollar</div><p class="howto-text">Günlük görevleri tamamlayarak altın kazan. Haritada gizli anahtarı bul; kilitli geçitleri açarak beş gizli haritaya ulaş ve ek ödüller topla.</p></section>
-      <section class="howto-section"><div class="howto-title">&#x1F451; Son savaş</div><p class="howto-text">100. katta Cyber-Dragon seni bekler. Boss'un yüksek HP'si ve alan saldırıları vardır; ekipmanlarını geliştirip yeteneklerini doğru seçerek savaşa hazırlan.</p></section>
-      <button type="button" class="back-menu-btn" id="howToBackBtn">Ana Menüye Dön</button>
-    </div>
-  </div>
-  <div class="pause-overlay" id="pauseOverlay">
-    <div class="pause-panel">
-      <div class="pause-title">DURAKLATILDI</div>
-      <div class="pause-subtitle">Zindan bekliyor. Hazır olduğunda devam edebilirsin.</div>
-      <button type="button" class="pause-resume" id="resumeBtn">Devam Et</button>
-    </div>
-  </div>
   <div class="floor-notif" id="floorNotif"></div>
   <div class="class-overlay" id="classOverlay">
     <div class="class-modal">
@@ -661,7 +483,6 @@
       </div>
       <span class="menu-tag" id="hudTitle">CYBER DUNGEON</span>
       <button type="button" class="settings-pill" id="settingsBtn">Ses: AÇIK</button>
-      <button type="button" class="settings-pill pause-pill" id="pauseBtn">Duraklat</button>
       <button type="button" class="settings-pill" id="logoutBtn">Çıkış</button>
     </div>
     <header class="hud-bar">
@@ -751,8 +572,6 @@
       <div class="detail-row"><span class="detail-label">EXP</span><span class="detail-value" id="statExp">0/100</span></div>
       <div class="bar-wrap"><div class="bar-bg"><div class="bar-fill exp-fill" id="expBarFill" style="width:0%"></div></div></div>
       <div class="detail-row"><span class="detail-label">Zirh</span><span class="detail-value" id="statDefense">0</span></div>
-      <div class="section-title" id="skillSectionTitle">&#x1F3F9; Yetenekler</div>
-      <div class="skill-list" id="warriorSkillList"></div>
       <div class="section-title">&#x1F6E1; Donanim</div>
       <div class="equip-grid">
         <div class="equip-slot weapon" id="slotWeapon" data-slot="weapon">
@@ -809,6 +628,10 @@
       <div class="shop-item">
         <div><div class="shop-item-name">&#x1F52E; Mana Iksiri</div><div class="shop-item-desc">+40 MP - 30 Altin</div></div>
         <button type="button" class="shop-buy-btn" data-item="mana_potion">Al</button>
+      </div>
+      <div class="shop-item">
+        <div><div class="shop-item-name">&#x1F47B; Gorunmezlik Iksiri</div><div class="shop-item-desc">15 saniye gorunmezlik - 400 Altin</div></div>
+        <button type="button" class="shop-buy-btn" data-item="invisibility_potion">Al</button>
       </div>
       <div class="shop-item">
         <div><div class="shop-item-name">&#x1F5E1;&#xFE0F; Kilic+</div><div class="shop-item-desc">+5 ATK - 100 Altin</div></div>
@@ -1056,25 +879,6 @@
     const loginTab = document.getElementById('loginTab');
     const registerTab = document.getElementById('registerTab');
     const logoutBtn = document.getElementById('logoutBtn');
-    const mainMenuOverlay = document.getElementById('mainMenuOverlay');
-    const menuUsername = document.getElementById('menuUsername');
-    const continueBtn = document.getElementById('continueBtn');
-    const continueTitle = document.getElementById('continueTitle');
-    const continueMeta = document.getElementById('continueMeta');
-    const menuLevel = document.getElementById('menuLevel');
-    const menuFloor = document.getElementById('menuFloor');
-    const menuKills = document.getElementById('menuKills');
-    const menuAchievementCount = document.getElementById('menuAchievementCount');
-    const achievementOverlay = document.getElementById('achievementOverlay');
-    const menuAchievementList = document.getElementById('menuAchievementList');
-    const achievementSummary = document.getElementById('achievementSummary');
-    const settingsOverlay = document.getElementById('settingsOverlay');
-    const settingsClose = document.getElementById('settingsClose');
-    const effectsToggle = document.getElementById('effectsToggle');
-    const musicToggle = document.getElementById('musicToggle');
-    const vibrationToggle = document.getElementById('vibrationToggle');
-    const shakeToggle = document.getElementById('shakeToggle');
-    const howToOverlay = document.getElementById('howToOverlay');
     const classOverlay = document.getElementById('classOverlay');
     const classError = document.getElementById('classError');
     const classButtons = document.querySelectorAll('.class-card');
@@ -1103,13 +907,8 @@
     const hpDot = document.getElementById('hpDot');
     const questPanel = document.getElementById('questPanel');
     const achievementList = document.getElementById('achievementList');
-    const warriorSkillList = document.getElementById('warriorSkillList');
-    const skillSectionTitle = document.getElementById('skillSectionTitle');
     const floorNotif = document.getElementById('floorNotif');
     const canvasFrame = document.getElementById('canvasFrame');
-    const pauseBtn = document.getElementById('pauseBtn');
-    const pauseOverlay = document.getElementById('pauseOverlay');
-    const resumeBtn = document.getElementById('resumeBtn');
 
     // State
     let map = [], fogMatrix = [], enemies = [], chests = [];
@@ -1121,15 +920,10 @@
     let boss = null;
     let dailyQuest = { name:'', target:1, progress:0, reward:100, completed:false };
     let soundEnabled = true;
-    let musicEnabled = true;
-    let vibrationEnabled = true;
-    let shakeEnabled = true;
     let audioCtx = null;
-    let musicTimer = null;
-    let musicStep = 0;
     let player = { x:0, y:0 };
     let cellSize = 20;
-    let gameOver = false, gameWon = false, isPaused = false, isMoving = false, pendingLevelUps = 0;
+    let gameOver = false, gameWon = false, isMoving = false, pendingLevelUps = 0;
     let isBuying = false, isCasting = false;
     let classSelected = false, initComplete = false, isSelectingClass = false;
     let characterClass = '', gridSize = GRID_SIZE;
@@ -1137,21 +931,10 @@
     let currentFloor = 1;
     let authMode = 'login';
     let achievements = [];
-    let unlockedSkills = [];
-    let rangedSkills = {};
-    let skillUses = {};
-    let rangedCooldown = 0;
-    let accountStats = { enemies_killed:0, total_gold_earned:0, highest_floor:1, games_won:0 };
-    let statusFromMenu = false;
     let character = { level:1, hp:100, maxHp:100, mp:50, maxMp:50, gold:0, exp:0, expToNext:100, attack:15, defense:0 };
     let inventoryItems = [];
     let equipment = { weapon:null, armor:null, accessory:null };
     let floatTexts = [];
-    let projectileEffects = [];
-    let impactEffects = [];
-    let enemyShakes = {};
-    let levelUpEffect = null;
-    let lastKnownLevel = 1;
     let aoeEffect = null; // { cx, cy, radius, life, born }
 
     const keysHeld = new Set();
@@ -1161,26 +944,8 @@
     };
 
     // ── Logging ─────────────────────────────────────────────────────────────
-    function loadSettings() {
-      try {
-        var stored = JSON.parse(localStorage.getItem('cyberDungeonSettings') || '{}');
-        soundEnabled = stored.effects !== false;
-        musicEnabled = stored.music !== false;
-        vibrationEnabled = stored.vibration !== false;
-        shakeEnabled = stored.shake !== false;
-      } catch(e) {}
-    }
-    function saveSettings() {
-      localStorage.setItem('cyberDungeonSettings', JSON.stringify({ effects:soundEnabled, music:musicEnabled, vibration:vibrationEnabled, shake:shakeEnabled }));
-    }
-    function syncSettingsUI() {
-      effectsToggle.checked = soundEnabled;
-      musicToggle.checked = musicEnabled;
-      vibrationToggle.checked = vibrationEnabled;
-      shakeToggle.checked = shakeEnabled;
-      document.getElementById('settingsBtn').textContent = 'Ayarlar';
-    }
     function ensureAudio() {
+      if (!soundEnabled) return null;
       if (!audioCtx) {
         const AudioCtor = window.AudioContext || window.webkitAudioContext;
         if (!AudioCtor) return null;
@@ -1207,8 +972,6 @@
     }
 
     function playActionSound(kind) {
-      if (musicEnabled) startMusic();
-      if (vibrationEnabled && navigator.vibrate) navigator.vibrate(kind === 'boss' ? 35 : 12);
       if (!soundEnabled) return;
       if (kind === 'move') playTone(220, 80, 0.025, 'triangle');
       if (kind === 'attack') playTone(180, 100, 0.04, 'square');
@@ -1216,32 +979,6 @@
       if (kind === 'boss') playTone(90, 220, 0.06, 'sawtooth');
       if (kind === 'win') playTone(660, 180, 0.05, 'sine');
       if (kind === 'menu') playTone(350, 90, 0.03, 'triangle');
-    }
-
-    function startMusic() {
-      if (!musicEnabled || musicTimer) return;
-      var notes = [196, 247, 294, 247, 220, 262, 330, 262];
-      musicTimer = setInterval(function() {
-        if (!musicEnabled) return;
-        playTone(notes[musicStep++ % notes.length], 260, 0.012, 'sine');
-      }, 520);
-    }
-    function stopMusic() {
-      if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
-    }
-    function openSettings() {
-      syncSettingsUI();
-      settingsOverlay.classList.add('active');
-    }
-    function closeSettings() { settingsOverlay.classList.remove('active'); }
-    function applySettings() {
-      soundEnabled = effectsToggle.checked;
-      musicEnabled = musicToggle.checked;
-      vibrationEnabled = vibrationToggle.checked;
-      shakeEnabled = shakeToggle.checked;
-      saveSettings();
-      if (musicEnabled) startMusic(); else stopMusic();
-      syncSettingsUI();
     }
 
     function timeStr() {
@@ -1282,18 +1019,6 @@
     // ── Float texts ──────────────────────────────────────────────────────────
     function spawnFloat(wx, wy, text, color) {
       floatTexts.push({ wx:wx, wy:wy, text:text, color:color, born:performance.now() });
-    }
-
-    function spawnProjectile(fromX, fromY, toX, toY, color, kind) {
-      projectileEffects.push({ fromX:fromX, fromY:fromY, toX:toX, toY:toY, color:color, kind:kind || 'arrow', born:performance.now(), duration:260, impacted:false });
-    }
-
-    function spawnImpact(wx, wy, color, kind) {
-      impactEffects.push({ wx:wx, wy:wy, color:color, kind:kind || 'hit', born:performance.now() });
-    }
-
-    function spawnLevelUpEffect() {
-      levelUpEffect = { born:performance.now(), particles:Array.from({length:18}, function(_, index) { return { angle:index/18*Math.PI*2, distance:8+Math.random()*10, speed:0.7+Math.random()*0.5 }; }) };
     }
 
     // ── UI Updates ───────────────────────────────────────────────────────────
@@ -1418,33 +1143,25 @@
       shopBtn.disabled = gameOver || gameWon || !atMerchant;
       updateQuestUI();
       updateAchievementUI();
-      updateSkillTree();
       updateHudPanels();
       updateEquipUI();
       updateInvUI();
     }
 
     function applyCharacterState(data) {
-      var incomingLevel = data.level || 1;
-      if (data.class_selected && incomingLevel > lastKnownLevel) spawnLevelUpEffect();
-      lastKnownLevel = incomingLevel;
       character = {
         level: data.level, hp: data.hp, maxHp: data.max_hp,
         mp: data.mp != null ? data.mp : 50,
         maxMp: data.max_mp != null ? data.max_mp : 50,
         gold: data.gold, exp: data.exp, expToNext: data.exp_to_next,
         attack: data.attack_power || 15, defense: data.damage_reduction || 0,
+        invisible: !!data.invisible,
       };
       pendingLevelUps = data.pending_level_ups || 0;
       if (data.character_class) characterClass = data.character_class;
       if (data.daily_quest) dailyQuest = data.daily_quest;
-      accountStats = data.stats || accountStats;
       if (data.inventory) inventoryItems = data.inventory;
       if (data.equipment) equipment = data.equipment;
-      unlockedSkills = data.unlocked_skills || [];
-      rangedSkills = data.ranged_skills || {};
-      skillUses = data.skill_uses || {};
-      rangedCooldown = data.ranged_cooldown || 0;
       achievements = data.achievements || [];
       if (data.floor) currentFloor = data.floor;
       classSelected = !!data.class_selected;
@@ -1469,77 +1186,6 @@
           '<span class="achievement-desc">' + achievement.description + '</span></span>';
         achievementList.appendChild(row);
       });
-    }
-
-    function updateSkillTree() {
-      var isWarrior = characterClass === 'Warrior';
-      skillSectionTitle.style.display = isWarrior ? '' : 'none';
-      warriorSkillList.style.display = isWarrior ? '' : 'none';
-      if (!isWarrior) return;
-      warriorSkillList.innerHTML = '';
-      Object.keys(rangedSkills).forEach(function(skillId) {
-        var skill = rangedSkills[skillId];
-        var unlocked = unlockedSkills.indexOf(skillId) !== -1;
-        var uses = skillUses[skillId] != null ? skillUses[skillId] : 3;
-        var row = document.createElement('div');
-        row.className = 'skill-item ' + (unlocked ? 'unlocked' : 'locked');
-        row.innerHTML = '<span class="skill-level">Lv.' + skill.level + '</span>' +
-          '<span class="skill-copy"><span class="skill-name">' + (unlocked ? '🏹 ' : '🔒 ') + skill.name + '</span>' +
-          '<span class="skill-description">' + skill.description + (unlocked ? ' | Hak: ' + uses + '/3' : '') + '</span></span>';
-        warriorSkillList.appendChild(row);
-      });
-    }
-
-    function getActiveWarriorSkillId() {
-      for (var i = unlockedSkills.length - 1; i >= 0; i--) {
-        var skillId = unlockedSkills[i];
-        var uses = skillUses[skillId] != null ? skillUses[skillId] : 3;
-        if (uses > 0) return skillId;
-      }
-      return null;
-    }
-
-    function renderAchievementList(target) {
-      if (!target) return;
-      target.innerHTML = '';
-      achievements.forEach(function(achievement) {
-        var row = document.createElement('div');
-        row.className = 'achievement-item ' + (achievement.unlocked ? 'unlocked' : 'locked');
-        row.innerHTML = '<span class="achievement-icon">' + (achievement.unlocked ? achievement.icon : '&#x1F512;') + '</span>' +
-          '<span class="achievement-copy"><span class="achievement-name">' + achievement.name + '</span>' +
-          '<span class="achievement-desc">' + achievement.description + '</span></span>';
-        target.appendChild(row);
-      });
-    }
-
-    function updateMainMenu(data) {
-      var username = data.username || 'Oyuncu';
-      var hasSave = !!data.class_selected;
-      var unlocked = achievements.filter(function(achievement) { return achievement.unlocked; }).length;
-      menuUsername.textContent = username;
-      menuLevel.textContent = hasSave ? character.level : '1';
-      menuFloor.textContent = accountStats.highest_floor || 1;
-      menuKills.textContent = accountStats.enemies_killed || 0;
-      menuAchievementCount.textContent = unlocked + '/' + achievements.length;
-      continueBtn.disabled = !hasSave;
-      continueTitle.textContent = hasSave ? characterClass + ' - Kat ' + currentFloor : 'Kayıt bulunamadı';
-      continueMeta.textContent = hasSave
-        ? 'Seviye ' + character.level + ' | ' + character.exp + '/' + character.expToNext + ' EXP'
-        : 'Yeni Oyun ile macerana başla.';
-      achievementSummary.textContent = unlocked + '/' + achievements.length + ' başarım açıldı.';
-      renderAchievementList(menuAchievementList);
-    }
-
-    function showMainMenu(data) {
-      applyState(data);
-      mainMenuOverlay.classList.add('active');
-      gameUi.classList.add('hidden');
-      classOverlay.classList.remove('active');
-      updateMainMenu(data);
-    }
-
-    function hideMainMenu() {
-      mainMenuOverlay.classList.remove('active');
     }
 
     // Maintain smooth render positions for player
@@ -1624,15 +1270,15 @@
     function resizeCanvas() {
       if (!classSelected) return;
       var frame = canvas.parentElement;
-      var w = Math.max(0, frame.clientWidth - 8);
-      var h = Math.max(0, mapSection.clientHeight - 16);
+      var minimapHeight = minimapCanvas ? minimapCanvas.offsetHeight + 8 : 0;
+      var w = frame.clientWidth - 4;
+      var h = mapSection.clientHeight - 16 - minimapHeight;
       if (w <= 0 || h <= 0) { requestAnimationFrame(resizeCanvas); return; }
-      var size = Math.min(w, h, window.innerWidth - 20, window.innerHeight - 20);
+      var size = Math.min(w, h, window.innerWidth - 20);
       cellSize = Math.max(1, Math.floor(size / VIEW_SIZE));
       var cs = cellSize * VIEW_SIZE;
       canvas.width = cs; canvas.height = cs;
       canvas.style.width = cs+'px'; canvas.style.height = cs+'px';
-      frame.style.minHeight = cs + 4 + 'px';
       draw();
     }
 
@@ -1819,9 +1465,7 @@
     }
 
     function drawEnemy(sx, sy, e) {
-      var shaking = enemyShakes[e.id] && enemyShakes[e.id] > performance.now();
-      var px = sx + (shaking ? Math.sin(performance.now() * 0.08) * 2 : 0);
-      var py = sy + (shaking ? Math.cos(performance.now() * 0.1) * 1.5 : 0);
+      var px = sx, py = sy;
       var spriteKey = e.name === 'Orc Bruiser' ? 'Orc Bruiser' : (e.name === 'Skeleton Archer' ? 'Skeleton Archer' : 'Goblin');
       var glow = e.name === 'Orc Bruiser' ? 'rgba(68,187,68,0.25)' : e.name === 'Skeleton Archer' ? 'rgba(255,204,102,0.2)' : 'rgba(255,34,68,0.24)';
       drawSmallPixelCharacter(px, py, SPRITES[spriteKey], glow);
@@ -1857,7 +1501,10 @@
       var px = sx, py = sy;
       var sprite = PLAYER_SPRITES[characterClass] || PLAYER_SPRITES.Warrior;
       var glow = characterClass === 'Mage' ? 'rgba(68,136,255,0.3)' : characterClass === 'Rogue' ? 'rgba(57,255,20,0.25)' : 'rgba(0,240,255,0.3)';
+      ctx.save();
+      if (character.invisible) ctx.globalAlpha = 0.28;
       drawSmallPixelCharacter(px, py, sprite, glow);
+      ctx.restore();
     }
 
     function drawFogOverlay(sx, sy) {
@@ -1878,7 +1525,7 @@
     }
 
     function drawFloatTexts(now) {
-      var dur = 320;
+      var dur = 600;
       floatTexts = floatTexts.filter(function(f) { return now - f.born < dur; });
       if (!floatTexts.length) return;
       var cam = getCamera();
@@ -1916,69 +1563,6 @@
       }
     }
 
-    function drawProjectileEffects(now) {
-      var cam = getCamera();
-      projectileEffects = projectileEffects.filter(function(effect) {
-        var age = now - effect.born;
-        if (age >= effect.duration) {
-          if (!effect.impacted) { spawnImpact(effect.toX, effect.toY, effect.color, effect.kind); effect.impacted = true; }
-          return false;
-        }
-        if (!inViewport(effect.fromX, effect.fromY, cam) && !inViewport(effect.toX, effect.toY, cam)) return true;
-        var progress = age / effect.duration;
-        var x = effect.fromX + (effect.toX - effect.fromX) * progress;
-        var y = effect.fromY + (effect.toY - effect.fromY) * progress;
-        var sx = (x - cam.x) * cellSize + cellSize / 2;
-        var sy = (y - cam.y) * cellSize + cellSize / 2;
-        var angle = Math.atan2(effect.toY - effect.fromY, effect.toX - effect.fromX);
-        ctx.save();
-        ctx.translate(sx, sy); ctx.rotate(angle);
-        ctx.shadowColor = effect.color; ctx.shadowBlur = 10; ctx.fillStyle = effect.color;
-        if (effect.kind === 'fireball') {
-          ctx.beginPath(); ctx.arc(0, 0, Math.max(4, cellSize * 0.25), 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#fff2a6'; ctx.beginPath(); ctx.arc(-cellSize*0.06, -cellSize*0.06, Math.max(2, cellSize*0.1), 0, Math.PI*2); ctx.fill();
-        } else {
-          ctx.fillRect(-cellSize*0.34, -Math.max(1.5, cellSize*0.06), cellSize*0.58, Math.max(2, cellSize*0.11));
-          ctx.fillStyle = '#fff7c2'; ctx.fillRect(cellSize*0.18, -Math.max(2, cellSize*0.1), cellSize*0.18, Math.max(3, cellSize*0.2));
-        }
-        ctx.restore();
-        return true;
-      });
-    }
-
-    function drawImpactEffects(now) {
-      var cam = getCamera();
-      impactEffects = impactEffects.filter(function(effect) {
-        var age = now - effect.born, duration = effect.kind === 'explosive_arrow' ? 480 : 260;
-        if (age >= duration) return false;
-        if (!inViewport(effect.wx, effect.wy, cam)) return true;
-        var progress = age / duration;
-        var s = wts(effect.wx, effect.wy, cam);
-        var radius = cellSize * (0.25 + progress * (effect.kind === 'explosive_arrow' ? 1.5 : 0.8));
-        ctx.save(); ctx.globalAlpha = 1 - progress; ctx.strokeStyle = effect.color; ctx.shadowColor = effect.color; ctx.shadowBlur = 12; ctx.lineWidth = Math.max(1, cellSize * 0.08);
-        ctx.beginPath(); ctx.arc(s.x + cellSize/2, s.y + cellSize/2, radius, 0, Math.PI*2); ctx.stroke();
-        if (effect.kind === 'explosive_arrow') { ctx.fillStyle = effect.color; ctx.globalAlpha = (1-progress)*0.18; ctx.fill(); }
-        ctx.restore(); return true;
-      });
-    }
-
-    function drawLevelUpEffect(now) {
-      if (!levelUpEffect) return;
-      var age = now - levelUpEffect.born, duration = 900;
-      if (age >= duration) { levelUpEffect = null; return; }
-      var progress = age / duration;
-      var cx = canvas.width / 2, cy = canvas.height / 2;
-      ctx.save(); ctx.globalAlpha = 1 - progress;
-      ctx.strokeStyle = '#ffe600'; ctx.shadowColor = '#ffe600'; ctx.shadowBlur = 18; ctx.lineWidth = Math.max(2, cellSize * 0.08);
-      ctx.beginPath(); ctx.arc(cx, cy, cellSize * (0.8 + progress * 2.8), 0, Math.PI*2); ctx.stroke();
-      levelUpEffect.particles.forEach(function(particle) {
-        var distance = particle.distance * cellSize * progress;
-        ctx.fillStyle = particle.angle % 2 > 1 ? '#fff5a6' : '#39ff14';
-        ctx.fillRect(cx + Math.cos(particle.angle) * distance, cy + Math.sin(particle.angle) * distance, Math.max(2, cellSize*0.12), Math.max(2, cellSize*0.12));
-      });
-      ctx.restore();
-    }
-
     // ── Main draw ─────────────────────────────────────────────────────────────
     function renderMinimap() {
       if (!map.length) return;
@@ -2000,7 +1584,7 @@
           mctx.fillRect(px, py, cell, cell);
         }
       }
-      if (merchant && merchant.visible) {
+      if (merchant && merchant.x >= 0 && merchant.y >= 0) {
         mctx.fillStyle = '#39ff14';
         mctx.fillRect(merchant.x * cell + 1, merchant.y * cell + 1, Math.max(2, cell - 2), Math.max(2, cell - 2));
       }
@@ -2100,9 +1684,6 @@
 
       drawAoeEffect(now);
       drawFogVignette(cam);
-      drawProjectileEffects(now);
-      drawImpactEffects(now);
-      drawLevelUpEffect(now);
       drawFloatTexts(now);
     }
 
@@ -2117,7 +1698,6 @@
 
     // ── Shake ────────────────────────────────────────────────────────────────
     function triggerShake() {
-      if (!shakeEnabled) return;
       canvasFrame.classList.remove('shake');
       void canvasFrame.offsetWidth;
       canvasFrame.classList.add('shake');
@@ -2135,27 +1715,16 @@
       enemies.forEach(function(e) {
         if (!isVisible(e.x,e.y)) return;
         var d = Math.max(Math.abs(e.x-player.x), Math.abs(e.y-player.y));
-        var maxRange = characterClass === 'Warrior' && unlockedSkills.length
-          ? (rangedSkills[unlockedSkills[unlockedSkills.length - 1]] || {}).range || FIREBALL_RANGE
-          : FIREBALL_RANGE;
-        if (d <= maxRange && d < bestDist) { bestDist = d; best = e; }
+        if (d <= FIREBALL_RANGE && d < bestDist) { bestDist = d; best = e; }
       });
       return best;
     }
     function updateAttackButton() {
       var target = getNearestEnemy();
-      var warrior = characterClass === 'Warrior';
-      var activeSkillId = warrior ? getActiveWarriorSkillId() : null;
-      var activeSkill = activeSkillId ? rangedSkills[activeSkillId] : null;
-      var activeUses = activeSkillId ? (skillUses[activeSkillId] != null ? skillUses[activeSkillId] : 3) : 0;
-      attackBtn.querySelector('.action-icon').innerHTML = warrior ? '&#x1F3F9;' : '&#x1F4A5;';
-      attackBtn.lastChild.textContent = warrior ? ' ' + (activeSkill ? activeSkill.name : 'Seviye 2') : ' Alev Topu';
-      attackBtn.title = warrior && activeSkill ? activeSkill.description : '';
-      attackBtn.disabled = isPaused || gameOver || gameWon || isCasting ||
-        (warrior ? (!activeSkill || activeUses <= 0 || rangedCooldown > 0) : (!target || character.mp < FIREBALL_COST));
+      attackBtn.disabled = gameOver || gameWon || isCasting || character.mp < FIREBALL_COST || !target;
     }
     function updateShopButtons() {
-      var costs = { potion:20, mana_potion:30, sword_upgrade:100, armor_upgrade:150 };
+      var costs = { potion:20, mana_potion:30, invisibility_potion:400, sword_upgrade:100, armor_upgrade:150 };
       document.querySelectorAll('.shop-buy-btn').forEach(function(btn) {
         btn.disabled = character.gold < costs[btn.dataset.item];
       });
@@ -2192,7 +1761,12 @@
         authOverlay.classList.remove('active');
         loadingOverlay.classList.add('hidden');
         initComplete = true;
-        showMainMenu(data);
+        if (data.class_selected) {
+          startGameFromState();
+          addLog('Tekrar hoş geldin, ' + data.username + '!', 'info');
+        } else {
+          showClassSelect();
+        }
         authForm.reset();
       } catch(e) {
         authError.textContent = (e && e.message) || 'Sunucuya bağlanılamadı';
@@ -2206,20 +1780,18 @@
     function setClassButtonsEnabled(en) { classButtons.forEach(function(b) { b.disabled = !en; }); }
     function showClassError(msg) { classError.textContent = msg; classError.classList.add('visible'); }
     function hideClassError() { classError.textContent = ''; classError.classList.remove('visible'); }
-    function showClassSelect() { mainMenuOverlay.classList.remove('active'); classOverlay.classList.add('active'); gameUi.classList.add('hidden'); setClassButtonsEnabled(initComplete && !isSelectingClass); }
+    function showClassSelect() { classOverlay.classList.add('active'); gameUi.classList.add('hidden'); setClassButtonsEnabled(initComplete && !isSelectingClass); }
     function hideClassSelect() { classOverlay.classList.remove('active'); gameUi.classList.remove('hidden'); hideClassError(); }
-    function startGameFromState() {
-      hideMainMenu();
-      hideClassSelect();
-      requestAnimationFrame(function() { resizeCanvas(); ensureGameLoop(); });
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      const label = document.getElementById('settingsBtn');
+      if (label) label.textContent = 'Ses: ' + (soundEnabled ? 'AÇIK' : 'KAPALI');
+      playActionSound('menu');
     }
 
-    function setPaused(paused) {
-      if (!classSelected || gameOver || gameWon) return;
-      isPaused = paused;
-      pauseOverlay.classList.toggle('active', isPaused);
-      pauseBtn.textContent = isPaused ? 'Devam Et' : 'Duraklat';
-      updateAttackButton();
+    function startGameFromState() {
+      hideClassSelect();
+      requestAnimationFrame(function() { resizeCanvas(); ensureGameLoop(); });
     }
 
     async function selectClass(cls) {
@@ -2256,13 +1828,7 @@
 
     function showLevelUp() {
       levelUpLevel.textContent = 'Seviye ' + character.level;
-      var unlockedNow = characterClass === 'Warrior' && rangedSkills && Object.keys(rangedSkills).find(function(skillId) {
-        return rangedSkills[skillId].level === character.level && unlockedSkills.indexOf(skillId) !== -1;
-      });
-      var skill = unlockedNow ? rangedSkills[unlockedNow] : null;
-      levelUpSubtitle.textContent = skill
-        ? 'Yeni yetenek acildi: ' + skill.name + ' - ' + skill.description
-        : pendingLevelUps > 1
+      levelUpSubtitle.textContent = pendingLevelUps > 1
         ? pendingLevelUps + ' seviye odulu bekliyor. Bir yetenek sec.'
         : 'Bir yetenek secerek karakterini guclendir.';
       levelUpOverlay.classList.add('active');
@@ -2270,7 +1836,6 @@
 
     async function selectLevelUp(choice) {
       if (!pendingLevelUps) return;
-      var skillsBefore = unlockedSkills.slice();
       levelUpChoices.forEach(function(button) { button.disabled = true; });
       try {
         var res = await fetch(apiUrl('/api/select-level-up'), {
@@ -2281,9 +1846,6 @@
         if (!res.ok) throw new Error(data.detail || 'Odul secilemedi');
         applyState(data);
         addLog(data.reward.name + ' secildi: ' + data.reward.description, 'exp');
-        unlockedSkills.filter(function(skillId) { return skillsBefore.indexOf(skillId) === -1; }).forEach(function(skillId) {
-          addLog('Yeni Warrior yetenegi acildi: ' + rangedSkills[skillId].name + '!', 'quest');
-        });
         playActionSound('loot');
       } catch(e) {
         addLog((e && e.message) || 'Seviye odulu secilemedi', 'info');
@@ -2301,7 +1863,7 @@
 
     // ── API actions ──────────────────────────────────────────────────────────
     async function sendMove(direction) {
-      if (!classSelected || isPaused || gameOver || gameWon || isMoving) return;
+      if (!classSelected || gameOver || gameWon || isMoving) return;
       isMoving = true;
       var prevHp = character.hp;
       try {
@@ -2316,7 +1878,6 @@
         // AoE effect
         if (data.battles) {
           data.battles.forEach(function(b) {
-            if (b.enemy_id != null && b.damage_dealt > 0) enemyShakes[b.enemy_id] = performance.now() + 180;
             if (b.aoe) {
               aoeEffect = { cx:b.aoe_cx, cy:b.aoe_cy, radius:b.aoe_radius||1, born:performance.now() };
               triggerShake();
@@ -2361,7 +1922,7 @@
     }
 
     async function castFireball() {
-      if (!classSelected || isPaused || gameOver || gameWon || isCasting) return;
+      if (!classSelected || gameOver || gameWon || isCasting) return;
       var target = getNearestEnemy(); if (!target || character.mp < FIREBALL_COST) return;
       isCasting = true; updateAttackButton();
       try {
@@ -2370,35 +1931,12 @@
         var data = await res.json().catch(function(){return{};});
         if (!res.ok) { addLog(data.detail||'Saldiri basarisiz','info'); return; }
         triggerShake();
-        spawnProjectile(player.x, player.y, target.x, target.y, '#ff8800', 'fireball');
         spawnFloat(target.x, target.y, '-30 ATES!', '#ff8800');
         spawnFloat(player.x, player.y, '-20 MP', '#4488ff');
         if (data.enemy_killed) spawnFloat(target.x, target.y, 'OLDU!', '#ff2244');
         applyState(data); processLogs(data.logs);
         if (data.game_won || gameWon) showVictory();
       } catch(e) { addLog('Saldiri hatasi!', 'info'); }
-      finally { isCasting = false; updateAttackButton(); }
-    }
-
-    async function castRangedAttack() {
-      if (!classSelected || isPaused || gameOver || gameWon || isCasting || !unlockedSkills.length) return;
-      var target = getNearestEnemy();
-      if (!target) { addLog('Menzilli saldırı için görüş alanında menzil içinde düşman yok.', 'info'); return; }
-      if (rangedCooldown > 0) { addLog('Bu yetenek için ' + rangedCooldown + ' tur beklemelisin.', 'info'); return; }
-      var activeSkillId = getActiveWarriorSkillId();
-      if (!activeSkillId) { addLog('Tum menzilli yeteneklerin 3 kullanim hakki da bitti.', 'info'); return; }
-      if ((skillUses[activeSkillId] != null ? skillUses[activeSkillId] : 3) <= 0) { addLog('Bu yeteneğin 3 kullanım hakkı da bitti.', 'info'); return; }
-      isCasting = true; updateAttackButton();
-      try {
-        var res = await fetch(apiUrl('/api/ranged-attack'), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({enemy_id:target.id}) });
-        var data = await res.json().catch(function(){return{};});
-        if (!res.ok) { addLog(data.detail || 'Menzilli saldiri basarisiz','info'); return; }
-        triggerShake();
-        spawnProjectile(player.x, player.y, target.x, target.y, data.skill_id === 'explosive_arrow' ? '#ff8800' : '#ffe600', data.skill_id);
-        applyState(data); processLogs(data.logs);
-        spawnFloat(target.x, target.y, data.skill_name, '#ffe600');
-        if (data.enemy_killed) playActionSound('loot'); else playActionSound('attack');
-      } catch(e) { addLog('Menzilli saldiri hatasi!', 'info'); }
       finally { isCasting = false; updateAttackButton(); }
     }
 
@@ -2442,10 +1980,6 @@
         victoryOverlay.classList.remove('active');
         shopOverlay.classList.remove('active');
         statusOverlay.classList.remove('active');
-        mainMenuOverlay.classList.remove('active');
-        achievementOverlay.classList.remove('active');
-        pauseOverlay.classList.remove('active');
-        isPaused = false;
         gameOver = false; gameWon = false; classSelected = false; map = [];
         floatTexts = []; aoeEffect = null;
         applyState(await res.json());
@@ -2458,36 +1992,15 @@
       btn.addEventListener('click', function() { selectClass(btn.dataset.class); });
     });
 
-    document.getElementById('settingsBtn').addEventListener('click', openSettings);
-    settingsClose.addEventListener('click', closeSettings);
-    [effectsToggle, musicToggle, vibrationToggle, shakeToggle].forEach(function(toggle) {
-      toggle.addEventListener('change', applySettings);
-    });
+    document.getElementById('settingsBtn').addEventListener('click', toggleSound);
     loginTab.addEventListener('click', function(){setAuthMode('login');});
     registerTab.addEventListener('click', function(){setAuthMode('register');});
     authForm.addEventListener('submit', submitAuth);
     logoutBtn.addEventListener('click', logout);
-    pauseBtn.addEventListener('click', function(){ setPaused(!isPaused); });
-    resumeBtn.addEventListener('click', function(){ setPaused(false); });
-    document.getElementById('menuLogoutBtn').addEventListener('click', logout);
-    continueBtn.addEventListener('click', function(){ if (classSelected) { startGameFromState(); addLog('Tekrar hoş geldin, ' + (menuUsername.textContent || 'oyuncu') + '!', 'info'); } });
-    document.getElementById('newGameBtn').addEventListener('click', resetGame);
-    document.getElementById('characterBtn').addEventListener('click', function(){
-      statusFromMenu = true;
-      mainMenuOverlay.classList.remove('active');
-      statusOverlay.classList.add('active');
-    });
-    document.getElementById('achievementsBtn').addEventListener('click', function(){ achievementOverlay.classList.add('active'); });
-    document.getElementById('menuSettingsBtn').addEventListener('click', openSettings);
-    document.getElementById('howToBtn').addEventListener('click', function(){ howToOverlay.classList.add('active'); });
-    document.getElementById('howToClose').addEventListener('click', function(){ howToOverlay.classList.remove('active'); });
-    document.getElementById('howToBackBtn').addEventListener('click', function(){ howToOverlay.classList.remove('active'); });
-    document.getElementById('achievementClose').addEventListener('click', function(){ achievementOverlay.classList.remove('active'); });
-    document.getElementById('backMenuBtn').addEventListener('click', function(){ achievementOverlay.classList.remove('active'); });
 
     document.getElementById('dpad').querySelectorAll('.dpad-btn[data-dir]').forEach(function(btn) {
       var dir = btn.dataset.dir;
-      function press(e) { e.preventDefault(); if (classSelected&&!isPaused&&!gameOver&&!gameWon) { btn.classList.add('pressed'); playActionSound('move'); sendMove(dir); } }
+      function press(e) { e.preventDefault(); if (classSelected&&!gameOver&&!gameWon) { btn.classList.add('pressed'); playActionSound('move'); sendMove(dir); } }
       function release() { btn.classList.remove('pressed'); }
       btn.addEventListener('touchstart', press, {passive:false});
       btn.addEventListener('touchend', function(e){e.preventDefault();release();},{passive:false});
@@ -2497,18 +2010,11 @@
       btn.addEventListener('mouseleave', release);
     });
 
-    function usePrimaryAttack() { if (characterClass === 'Warrior') castRangedAttack(); else castFireball(); }
-    attackBtn.addEventListener('click', function(e){e.preventDefault();usePrimaryAttack();});
-    attackBtn.addEventListener('touchstart', function(e){e.preventDefault();usePrimaryAttack();},{passive:false});
+    attackBtn.addEventListener('click', function(e){e.preventDefault();castFireball();});
+    attackBtn.addEventListener('touchstart', function(e){e.preventDefault();castFireball();},{passive:false});
     statusBtn.addEventListener('click', function(){statusOverlay.classList.add('active');});
     shopBtn.addEventListener('click', function(){if(atMerchant)shopOverlay.classList.add('active');else addLog('Tuccarin yakininda degilsin!','info');});
-    document.getElementById('statusClose').addEventListener('click', function(){
-      statusOverlay.classList.remove('active');
-      if (statusFromMenu) {
-        statusFromMenu = false;
-        mainMenuOverlay.classList.add('active');
-      }
-    });
+    document.getElementById('statusClose').addEventListener('click', function(){statusOverlay.classList.remove('active');});
     document.getElementById('shopClose').addEventListener('click', function(){shopOverlay.classList.remove('active');});
     levelUpChoices.forEach(function(button) {
       button.addEventListener('click', function() { selectLevelUp(button.dataset.choice); });
@@ -2525,7 +2031,7 @@
     });
 
     document.addEventListener('keydown', function(e){
-      if (!classSelected||isPaused||gameOver||gameWon) return;
+      if (!classSelected||gameOver||gameWon) return;
       var dir = keyToDir[e.key];
       if (dir && !keysHeld.has(e.key)) { e.preventDefault(); keysHeld.add(e.key); sendMove(dir); }
     });
@@ -2552,7 +2058,14 @@
         applyState(data);
         loadingOverlay.classList.add('hidden');
         initComplete = true;
-        showMainMenu(data);
+        if (data.class_selected) {
+          startGameFromState();
+          addLog('Tekrar hosgeldin, '+characterClass+'! Kat: '+currentFloor+'/'+MAX_FLOOR, 'info');
+          if (data.game_over) showGameOver('Savasci dustu... Yeniden baslat.');
+          else if (data.game_won) showVictory();
+        } else {
+          showClassSelect();
+        }
       } catch(e) {
         initComplete = true;
         loadingOverlay.classList.add('hidden');
@@ -2561,8 +2074,6 @@
       }
     }
 
-    loadSettings();
-    syncSettingsUI();
     init();
   })();
   </script>
