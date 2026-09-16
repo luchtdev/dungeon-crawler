@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<link rel="icon" type="image/svg+xml" href="/icon.svg">
-<link rel="apple-touch-icon" href="/icon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="/icon.png">
 <link rel="icon" type="image/png" href="/icon.png">
   <meta charset="UTF-8">
@@ -226,9 +224,9 @@
     .log-msg.magic  { color: #ff8800; }
     .log-msg.quest  { color: var(--neon-green); font-weight: 700; }
     .log-msg.item   { color: #cc88ff; }
-    .controls-section { position: relative; z-index: 2; flex-shrink: 0; width: calc(100% - 24px); max-width: 600px; min-height: 164px; margin: 0 auto;
+    .controls-section { position: relative; z-index: 2; flex-shrink: 0; width: calc(100% - 24px); max-width: 600px; min-height: 164px; margin: auto auto 12px;
       padding: 4px 8px calc(8px + var(--safe-bottom));
-      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
       border: 3px solid var(--panel-border); background: var(--bg-panel); box-shadow: 0 0 15px rgba(255, 0, 85, 0.3); }
     .dpad-row { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
     .action-row { display: flex; align-items: center; justify-content: center; gap: 8px; }
@@ -1347,8 +1345,8 @@
     const GRID_SIZE = 48, VIEW_SIZE = 12;
     const API_BASE = window.GAME_API_BASE || (
       window.location.protocol === 'file:'
-        ? 'http://127.0.0.1:8000'
-        : window.location.origin
+        ? 'http://127.0.0.1:8001'
+        : (window.location.port === '8000' ? 'http://127.0.0.1:8001' : window.location.origin)
     );
     function apiUrl(path) { return API_BASE + path; }
     const TILE = 0, WALL = 1, STAIRS = 2, SECRET_DOOR = 3;
@@ -1584,7 +1582,6 @@
     let player = { x:0, y:0 };
     let cellSize = 20;
     let gameOver = false, gameWon = false, isMoving = false, pendingLevelUps = 0;
-    const moveQueue = [];
     let playerFacing = 1;
     let isBuying = false, isCasting = false;
     let classSelected = false, initComplete = false, isSelectingClass = false;
@@ -2667,38 +2664,20 @@
     }
 
     // ── API actions ──────────────────────────────────────────────────────────
-    function predictMove(direction) {
-      if (!map.length) return;
-      var delta = {up:[0,-1], down:[0,1], left:[-1,0], right:[1,0]}[direction];
-      var nextX = player.x + delta[0], nextY = player.y + delta[1];
-      if (nextX < 0 || nextY < 0 || nextY >= map.length || nextX >= map[nextY].length || map[nextY][nextX] === WALL) return;
-      if (map[nextY][nextX] === SECRET_DOOR && !hasSecretKey) return;
-      if (enemies.some(function(enemy) { return enemy.x === nextX && enemy.y === nextY; })) return;
-      if (boss && boss.x === nextX && boss.y === nextY) return;
-      player.x = nextX;
-      player.y = nextY;
-      ensurePlayerRender({x: nextX, y: nextY});
-    }
-
     async function sendMove(direction) {
-      if (!classSelected || gameOver || gameWon) return;
-      moveQueue.push(direction);
-      if (isMoving) return;
+      if (!classSelected || gameOver || gameWon || isMoving) return;
       isMoving = true;
+      if (direction === 'left') playerFacing = -1;
+      if (direction === 'right') playerFacing = 1;
+      var prevHp = character.hp;
       try {
-        while (moveQueue.length && classSelected && !gameOver && !gameWon) {
-          var nextDirection = moveQueue.shift();
-          if (nextDirection === 'left') playerFacing = -1;
-          if (nextDirection === 'right') playerFacing = 1;
-          predictMove(nextDirection);
-          var prevHp = character.hp;
-          var res = await fetch(apiUrl('/api/move'), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({direction:nextDirection}) });
-          if (!res.ok) {
-            var err = await res.json().catch(function(){return{};});
-            addLog(err.detail || 'Hareket basarisiz', 'info');
-            continue;
-          }
-          var data = await res.json();
+        var res = await fetch(apiUrl('/api/move'), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({direction:direction}) });
+        if (!res.ok) {
+          var err = await res.json().catch(function(){return{};});
+          addLog(err.detail || 'Hareket basarisiz', 'info');
+          return;
+        }
+        var data = await res.json();
 
         // AoE effect
         if (data.battles) {
@@ -2740,14 +2719,10 @@
         else if (data.game_over || gameOver) {
           showGameOver();
         }
-          if (data.at_merchant) shopOverlay.classList.add('active');
-          else shopOverlay.classList.remove('active');
-        }
+        if (data.at_merchant) shopOverlay.classList.add('active');
+        else shopOverlay.classList.remove('active');
       } catch(e) { addLog('Sunucu hatasi!', 'info'); }
-      finally {
-        isMoving = false;
-        if (gameOver || gameWon || !classSelected) moveQueue.length = 0;
-      }
+      finally { isMoving = false; }
     }
 
     async function castFireball() {
@@ -2802,7 +2777,6 @@
 
     async function resetGame() {
       try {
-        moveQueue.length = 0;
         var res = await fetch(apiUrl('/api/reset'), { method:'POST' });
         if (!res.ok) throw new Error('reset');
         combatLog.innerHTML = '';

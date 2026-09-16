@@ -1518,10 +1518,6 @@ async def on_startup():
     init_database()
     clear_runtime_state()
 
-@app.get("/icon.svg")
-async def get_icon():
-    return FileResponse(BASE_DIR / "icon.svg", media_type="image/svg+xml")
-
 @app.get("/knight_sheet.png")
 async def get_knight_sheet():
     return FileResponse(BASE_DIR / "knight_sheet.png")
