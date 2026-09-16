@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="apple-touch-icon" href="/icon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="/icon.png">
 <link rel="icon" type="image/png" href="/icon.png">
   <meta charset="UTF-8">
@@ -1593,6 +1595,7 @@
     let characterClass = '', gridSize = GRID_SIZE;
     let atMerchant = false, loopStarted = false;
     let currentFloor = 1;
+    let lastMoveAt = 0;
     let authMode = 'login';
     let achievements = [];
     let character = { level:1, hp:100, maxHp:100, mp:50, maxMp:50, gold:0, exp:0, expToNext:100, attack:15, defense:0 };
@@ -1602,6 +1605,7 @@
     let aoeEffect = null; // { cx, cy, radius, life, born }
 
     const keysHeld = new Set();
+    const holdIntervals = new Map();
     const keyToDir = {
       ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right',
       w:'up', W:'up', s:'down', S:'down', a:'left', A:'left', d:'right', D:'right',
@@ -2670,7 +2674,9 @@
 
     // ── API actions ──────────────────────────────────────────────────────────
     async function sendMove(direction) {
-      if (!classSelected || gameOver || gameWon || isMoving) return;
+      const now = Date.now();
+      if (!classSelected || gameOver || gameWon || isMoving || now - lastMoveAt < 80) return;
+      lastMoveAt = now;
       isMoving = true;
       if (direction === 'left') playerFacing = -1;
       if (direction === 'right') playerFacing = 1;
@@ -2807,21 +2813,45 @@
     authForm.addEventListener('submit', submitAuth);
     logoutBtn.addEventListener('click', logout);
 
+    function startHoldMove(dir, btn) {
+      if (holdIntervals.has(dir)) return;
+      const tick = function() {
+        if (!classSelected || gameOver || gameWon) {
+          stopHoldMove(dir, btn);
+          return;
+        }
+        btn.classList.add('pressed');
+        playActionSound('move');
+        sendMove(dir);
+      };
+      tick();
+      const intervalId = setInterval(tick, 110);
+      holdIntervals.set(dir, intervalId);
+    }
+
+    function stopHoldMove(dir, btn) {
+      const intervalId = holdIntervals.get(dir);
+      if (intervalId) {
+        clearInterval(intervalId);
+        holdIntervals.delete(dir);
+      }
+      btn.classList.remove('pressed');
+    }
+
     document.getElementById('dpad').querySelectorAll('.dpad-btn[data-dir]').forEach(function(btn) {
       var dir = btn.dataset.dir;
       function press(e) {
         e.preventDefault();
         if (classSelected && !gameOver && !gameWon) {
-          btn.classList.add('pressed');
-          playActionSound('move');
-          sendMove(dir);
+          startHoldMove(dir, btn);
         }
       }
-      function release() { btn.classList.remove('pressed'); }
+      function release() { stopHoldMove(dir, btn); }
       btn.addEventListener('pointerdown', press, { passive: false });
       btn.addEventListener('pointerup', release, { passive: false });
       btn.addEventListener('pointerleave', release);
       btn.addEventListener('pointercancel', release);
+      btn.addEventListener('pointerout', release);
     });
 
     attackBtn.addEventListener('pointerdown', function(e){ e.preventDefault(); castFireball(); }, { passive: false });
@@ -2846,11 +2876,23 @@
     });
 
     document.addEventListener('keydown', function(e){
-      if (!classSelected||gameOver||gameWon) return;
+      if (!classSelected || gameOver || gameWon) return;
       var dir = keyToDir[e.key];
-      if (dir && !keysHeld.has(e.key)) { e.preventDefault(); keysHeld.add(e.key); sendMove(dir); }
+      if (!dir) return;
+      e.preventDefault();
+      if (keysHeld.has(e.key)) return;
+      keysHeld.add(e.key);
+      const keyBtn = document.querySelector('.dpad-btn[data-dir="' + dir + '"]');
+      if (keyBtn) startHoldMove(dir, keyBtn);
     });
-    document.addEventListener('keyup', function(e){keysHeld.delete(e.key);});
+    document.addEventListener('keyup', function(e){
+      keysHeld.delete(e.key);
+      var dir = keyToDir[e.key];
+      if (dir) {
+        const keyBtn = document.querySelector('.dpad-btn[data-dir="' + dir + '"]');
+        if (keyBtn) stopHoldMove(dir, keyBtn);
+      }
+    });
 
     window.addEventListener('resize', resizeCanvas);
     window.addEventListener('orientationchange', function(){setTimeout(resizeCanvas,150);});
