@@ -162,11 +162,11 @@ app.add_middleware(
 )
 
 ACHIEVEMENTS = {
-    "first_blood": {"name": "Ilk Kan", "description": "Ilk dusmani yen", "icon": "⚔️"},
-    "level_5": {"name": "Usta Savasci", "description": "5. seviyeye ulas", "icon": "⭐"},
-    "floor_10": {"name": "Derinliklere", "description": "10. kata ulas", "icon": "🗺️"},
-    "gold_1000": {"name": "Hazine Avcisi", "description": "Toplam 1000 altin kazan", "icon": "💰"},
-    "boss_slayer": {"name": "Üstün Başarı: Ejderha Avcısı", "description": "Cyber-Dragon'u yen", "icon": "🐉"},
+    "first_blood": {"name": "Ilk Kan", "description": "Ilk dusmani yen", "icon": "ATK"},
+    "level_5": {"name": "Usta Savasci", "description": "5. seviyeye ulas", "icon": "LVL"},
+    "floor_10": {"name": "Derinliklere", "description": "10. kata ulas", "icon": "MAP"},
+    "gold_1000": {"name": "Hazine Avcisi", "description": "Toplam 1000 altin kazan", "icon": "GOLD"},
+    "boss_slayer": {"name": "Üstün Başarı: Ejderha Avcısı", "description": "Cyber-Dragon'u yen", "icon": "BOSS"},
 }
 
 
@@ -1200,7 +1200,7 @@ def apply_enemy_kill_rewards(enemy: dict, logs: list) -> dict:
     apply_exp(exp_gain)
     enemies[:] = [e for e in enemies if e["id"] != enemy["id"]]
     logs.append({"type": "gold",
-                 "message": f"{enemy['name']} yenildi! +{gold_gain} 💰 +{exp_gain} EXP"})
+                     "message": f"{enemy['name']} yenildi! +{gold_gain} GOLD +{exp_gain} EXP"})
     on_enemy_killed(logs)
     on_gold_collected(gold_gain, logs)
     # Item drop
@@ -1259,7 +1259,7 @@ def collect_chest(logs: list) -> None:
         player_state["stats"]["total_gold_earned"] += CHEST_GOLD
         apply_exp(CHEST_EXP)
         logs.append({"type": "gold",
-                     "message": f"Hazine buldun! +{CHEST_GOLD} 💰 +{CHEST_EXP} EXP"})
+                     "message": f"Hazine buldun! +{CHEST_GOLD} GOLD +{CHEST_EXP} EXP"})
         if daily_quest.get("type") == "collect_gold":
             on_gold_collected(CHEST_GOLD, logs)
         elif daily_quest.get("type") == "open_chests":
@@ -1393,7 +1393,7 @@ def move_boss(logs: list) -> list:
         player_state["hp"] = max(0, player_state["hp"] - dmg)
         check_game_over()
         logs.append({"type": "combat",
-                     "message": f"🐉 Cyber-Dragon sana {dmg} hasar vurdu!"})
+                     "message": f"Cyber-Dragon sana {dmg} hasar vurdu!"})
         battles.append({
             "enemy_id": 9999, "enemy_name": "Cyber-Dragon",
             "enemy_x": old_x, "enemy_y": old_y,
@@ -1421,7 +1421,7 @@ def attack_boss(atk: int, logs: list) -> dict:
         player_state["stats"]["games_won"] += 1
         apply_exp(boss_entity["exp"])
         logs.append({"type": "quest",
-                     "message": "🏆 CYBER-DRAGON YENİLDİ! Zindan fethedildi! ZAFER!"})
+                     "message": "CYBER-DRAGON YENİLDİ! Zindan fethedildi! ZAFER!"})
         return {"enemy_killed": True, "gold_gained": boss_entity["gold"],
                 "exp_gained": boss_entity["exp"], "game_won": True,
                 "enemy_id": 9999, "enemy_name": "Cyber-Dragon",
@@ -1719,7 +1719,7 @@ async def move_player(payload: MoveRequest):
         logs.append({"type": "info", "message": "Duvara çarptın!"})
     elif game_map[new_y][new_x] == SECRET_DOOR and not has_secret_key:
         blocked = True
-        logs.append({"type": "info", "message": "🔒 Gizli geçit kilitli. Anahtarı bulmalısın!"})
+        logs.append({"type": "info", "message": "Gizli geçit kilitli. Anahtarı bulmalısın!"})
     else:
         # Check if moving into boss
         if boss_entity and (new_x, new_y) == (boss_entity["x"], boss_entity["y"]):
