@@ -1847,8 +1847,27 @@
         player.startX = player.renderX;
         player.startY = player.renderY;
         player.moveStart = performance.now();
-        player.moveDuration = 150;
+        player.moveDuration = 0;
       }
+    }
+
+    function predictPlayerMove(direction) {
+      if (!map.length) return;
+      var delta = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] }[direction];
+      if (!delta) return;
+      var nextX = player.x + delta[0];
+      var nextY = player.y + delta[1];
+      if (nextX < 0 || nextY < 0 || nextX >= gridSize || nextY >= gridSize) return;
+      if (map[nextY][nextX] === 1 || map[nextY][nextX] === 3) return;
+      if (enemies.some(function(enemy) { return enemy.x === nextX && enemy.y === nextY; })) return;
+      player.x = nextX;
+      player.y = nextY;
+      player.renderX = nextX * cellSize;
+      player.renderY = nextY * cellSize;
+      player.targetX = player.renderX;
+      player.targetY = player.renderY;
+      player.startX = player.renderX;
+      player.startY = player.renderY;
     }
 
     function applyMapState(data) {
@@ -2418,9 +2437,14 @@
       // player
       if (typeof player.targetX === 'number') {
         var pdur = player.moveDuration || 150;
-        var pt = Math.min(1, (now - (player.moveStart||0)) / pdur);
-        player.renderX = (player.startX != null) ? (player.startX + (player.targetX - player.startX) * pt) : player.targetX;
-        player.renderY = (player.startY != null) ? (player.startY + (player.targetY - player.startY) * pt) : player.targetY;
+        if (player.moveDuration === 0) {
+          player.renderX = player.targetX;
+          player.renderY = player.targetY;
+        } else {
+          var pt = Math.min(1, (now - (player.moveStart||0)) / pdur);
+          player.renderX = (player.startX != null) ? (player.startX + (player.targetX - player.startX) * pt) : player.targetX;
+          player.renderY = (player.startY != null) ? (player.startY + (player.targetY - player.startY) * pt) : player.targetY;
+        }
       }
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -2659,6 +2683,7 @@
       isMoving = true;
       if (direction === 'left') playerFacing = -1;
       if (direction === 'right') playerFacing = 1;
+      predictPlayerMove(direction);
       var prevHp = character.hp;
       try {
         var res = await fetch(apiUrl('/api/move'), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({direction:direction}) });
