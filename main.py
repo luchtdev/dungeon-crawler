@@ -5,6 +5,7 @@ import hmac
 import json
 import secrets
 import sqlite3
+import time
 from datetime import datetime, timedelta, timezone
 from collections import deque
 from pathlib import Path
@@ -19,6 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "cyber_dungeon.sqlite3"
 SESSION_COOKIE = "cyber_dungeon_session"
 SESSION_DAYS = 30
+STATE_SAVE_INTERVAL = 2.0
 ADMIN_LOG_KEY_ENV = "CYBER_DUNGEON_ADMIN_KEY"
 
 GRID_SIZE = 48
@@ -284,9 +286,12 @@ def create_session(user_id: int, response: Response) -> None:
 def account_achievements() -> list:
     if not current_user_id:
         return []
-    with db_connect() as connection:
-        row = connection.execute("SELECT achievements_json FROM profiles WHERE user_id = ?", (current_user_id,)).fetchone()
-    unlocked = json.loads(row["achievements_json"]) if row else []
+    if achievement_cache_user_id == current_user_id:
+        unlocked = achievement_cache
+    else:
+        with db_connect() as connection:
+            row = connection.execute("SELECT achievements_json FROM profiles WHERE user_id = ?", (current_user_id,)).fetchone()
+        unlocked = json.loads(row["achievements_json"]) if row else []
     return [
         {"id": achievement_id, **definition, "unlocked": achievement_id in unlocked}
         for achievement_id, definition in ACHIEVEMENTS.items()
@@ -307,6 +312,9 @@ game_won = False
 pending_level_ups = 0
 boss_entity: Optional[dict] = None   # active boss on floor 100
 current_user_id: Optional[int] = None
+last_state_save_at = 0.0
+achievement_cache_user_id: Optional[int] = None
+achievement_cache: list = []
 class_selected = False
 character_class: Optional[str] = None
 daily_quest: dict = {}
@@ -389,9 +397,12 @@ def load_game_state(user_id: int) -> None:
     global game_over, game_won, boss_entity, class_selected, character_class, daily_quest
     global current_floor, secret_map_index, secret_key, secret_door, has_secret_key
     global player_state, equipment, inventory, pending_level_ups
+    global achievement_cache_user_id, achievement_cache
     current_user_id = user_id
     with db_connect() as connection:
-        row = connection.execute("SELECT state_json FROM profiles WHERE user_id = ?", (user_id,)).fetchone()
+        row = connection.execute("SELECT state_json, achievements_json FROM profiles WHERE user_id = ?", (user_id,)).fetchone()
+    achievement_cache_user_id = user_id
+    achievement_cache = json.loads(row["achievements_json"]) if row and row["achievements_json"] else []
     if not row:
         clear_runtime_state()
         return
@@ -426,6 +437,7 @@ def load_game_state(user_id: int) -> None:
 
 
 def save_game_state() -> None:
+    global last_state_save_at, achievement_cache_user_id, achievement_cache
     if not current_user_id:
         return
     stats = player_state.setdefault("stats", {"enemies_killed": 0, "total_gold_earned": 0, "highest_floor": 1, "games_won": 0})
@@ -443,6 +455,9 @@ def save_game_state() -> None:
             "ON CONFLICT(user_id) DO UPDATE SET state_json=excluded.state_json, achievements_json=excluded.achievements_json",
             (current_user_id, json.dumps(runtime_state(), ensure_ascii=False), json.dumps(sorted(unlocked))),
         )
+    achievement_cache_user_id = current_user_id
+    achievement_cache = sorted(unlocked)
+    last_state_save_at = time.monotonic()
 
 
 @app.middleware("http")
@@ -453,9 +468,12 @@ async def account_state_middleware(request: Request, call_next):
         user_id = session_user_id(request)
         if not user_id:
             return JSONResponse({"detail": "Giris yapman gerekiyor"}, status_code=401)
-        load_game_state(user_id)
+        if current_user_id != user_id:
+            load_game_state(user_id)
         response = await call_next(request)
-        if response.status_code < 500:
+        request_is_move = request.url.path == "/api/move"
+        now = time.monotonic()
+        if response.status_code < 500 and (not request_is_move or now - last_state_save_at >= STATE_SAVE_INTERVAL):
             save_game_state()
         return response
     return await call_next(request)

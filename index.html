@@ -747,33 +747,6 @@
       .action-btn.status { left: 12px; }
       .action-btn.shop { right: 12px; }
     }
-      }
-      .canvas-frame { min-height: 0; }
-      .minimap-panel { margin: 0 6px 6px; padding: 4px 7px; }
-      #minimapCanvas { width: 54px; height: 54px; }
-      .log-section {
-        grid-column: 2;
-        grid-row: 4;
-        width: auto;
-        max-width: none;
-        margin: 0;
-      }
-      .combat-log { height: auto; min-height: 64px; padding: 6px 8px; }
-      .controls-section {
-        grid-column: 2;
-        grid-row: 5;
-        width: auto;
-        min-height: 128px;
-        margin: 0;
-        padding: 3px 6px;
-      }
-      .dpad { grid-template-columns: repeat(3, 38px); grid-template-rows: repeat(3, 38px); gap: 3px; }
-      .dpad-btn { font-size: 0.9rem; }
-      .action-btn.status, .action-btn.shop { width: 58px; height: 42px; }
-      .action-btn.attack { width: 40px; height: 40px; }
-      .action-btn { font-size: 0.4rem; }
-      .action-btn .action-icon { font-size: 0.75rem; }
-    }
     /* Compact floating radar: it no longer consumes map height. */
     .map-section { position: relative; }
     .minimap-panel {
@@ -1589,6 +1562,7 @@
     let player = { x:0, y:0 };
     let cellSize = 20;
     let gameOver = false, gameWon = false, isMoving = false, pendingLevelUps = 0;
+    let queuedMove = null;
     let playerFacing = 1;
     let isBuying = false, isCasting = false;
     let classSelected = false, initComplete = false, isSelectingClass = false;
@@ -2675,7 +2649,12 @@
     // ── API actions ──────────────────────────────────────────────────────────
     async function sendMove(direction) {
       const now = Date.now();
-      if (!classSelected || gameOver || gameWon || isMoving || now - lastMoveAt < 80) return;
+      if (!classSelected || gameOver || gameWon) return;
+      if (isMoving) {
+        queuedMove = direction;
+        return;
+      }
+      if (now - lastMoveAt < 80) return;
       lastMoveAt = now;
       isMoving = true;
       if (direction === 'left') playerFacing = -1;
@@ -2733,7 +2712,14 @@
         if (data.at_merchant) shopOverlay.classList.add('active');
         else shopOverlay.classList.remove('active');
       } catch(e) { addLog('Sunucu hatasi!', 'info'); }
-      finally { isMoving = false; }
+      finally {
+        isMoving = false;
+        if (queuedMove && classSelected && !gameOver && !gameWon) {
+          const nextDirection = queuedMove;
+          queuedMove = null;
+          sendMove(nextDirection);
+        }
+      }
     }
 
     async function castFireball() {
