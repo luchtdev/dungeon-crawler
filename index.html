@@ -187,7 +187,7 @@
       30% { transform: translate(4px,3px); } 50% { transform: translate(-3px,4px); }
       70% { transform: translate(3px,-2px); } 90% { transform: translate(-2px,2px); }
       100% { transform: translate(0,0); } }
-    .log-section { flex-shrink: 0; align-self: center; width: calc(100% - 24px); max-width: 600px; margin: 0 auto 10px;
+    .log-section { position: relative; z-index: 1; flex-shrink: 0; align-self: center; width: calc(100% - 24px); max-width: 600px; margin: 0 auto 10px;
       border: 1px solid rgba(255,0,170,0.3); border-radius: 8px;
       background: rgba(0,0,0,0.5); overflow: hidden; }
     .log-header { padding: 4px 10px; font-size: 0.55rem; font-weight: 700;
@@ -206,7 +206,7 @@
     .log-msg.magic  { color: #ff8800; }
     .log-msg.quest  { color: var(--neon-green); font-weight: 700; }
     .log-msg.item   { color: #cc88ff; }
-    .controls-section { position: relative; flex-shrink: 0; min-height: 164px;
+    .controls-section { position: relative; z-index: 2; flex-shrink: 0; width: calc(100% - 24px); max-width: 600px; min-height: 164px; margin: 0 auto;
       padding: 4px 8px calc(8px + var(--safe-bottom));
       display: flex; align-items: center; justify-content: center;
       border-top: 1px solid rgba(0,240,255,0.12); background: rgba(13,18,32,0.95); }
@@ -233,7 +233,7 @@
     .action-btn:active:not(:disabled) { transform: scale(0.93); }
     .action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
     .action-btn .action-icon { font-size: 0.9rem; line-height: 1; }
-    .action-btn.attack { left: 50%; top: 50%; width: 48px; height: 48px;
+    .action-btn.attack { left: 50%; top: 50%; z-index: 4; width: 48px; height: 48px;
       border-radius: 50%; transform: translate(-50%, -50%); }
     .action-btn.status, .action-btn.shop { top: 50%; width: 88px; height: 58px; min-height: 0; transform: translateY(-50%); }
     .action-btn.status { left: 8px; }
@@ -939,6 +939,7 @@
     let player = { x:0, y:0 };
     let cellSize = 20;
     let gameOver = false, gameWon = false, isMoving = false, pendingLevelUps = 0;
+    let playerFacing = 1;
     let isBuying = false, isCasting = false;
     let classSelected = false, initComplete = false, isSelectingClass = false;
     let characterClass = '', gridSize = GRID_SIZE;
@@ -1512,13 +1513,122 @@
       ctx.fillText(boss.hp + '/' + boss.max_hp, px + cellSize / 2, py - 4);
     }
 
+    function drawKnightCharacter(px, py) {
+      var t = performance.now();
+      var walk = isMoving ? Math.sin(t / 85) : 0;
+      var idle = isMoving ? 0 : Math.sin(t / 520) * cellSize * 0.025;
+      var attack = isCasting ? Math.min(1, (t % 520) / 260) : 0;
+      var cx = px + cellSize * 0.5;
+      var ground = py + cellSize * 0.91;
+      var unit = cellSize / 32;
+      var bodyY = ground - cellSize * 0.46 + idle;
+      var facing = playerFacing;
+      ctx.save();
+      ctx.translate(cx, 0);
+      ctx.scale(facing, 1);
+      ctx.translate(-cx, 0);
+
+      ctx.fillStyle = 'rgba(0,0,0,0.58)';
+      ctx.beginPath(); ctx.ellipse(cx, ground, cellSize * 0.28, cellSize * 0.065, 0, 0, Math.PI * 2); ctx.fill();
+
+      var glow = ctx.createRadialGradient(cx, bodyY, 0, cx, bodyY, cellSize * 0.72);
+      glow.addColorStop(0, 'rgba(92,191,255,0.22)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = glow; ctx.fillRect(px, py, cellSize, cellSize);
+
+      var legSwing = walk * cellSize * 0.07;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#27384e'; ctx.lineWidth = Math.max(2, cellSize * 0.13);
+      ctx.beginPath(); ctx.moveTo(cx - cellSize*0.1, bodyY + cellSize*0.3); ctx.lineTo(cx - cellSize*0.13 + legSwing, ground - cellSize*0.03); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + cellSize*0.1, bodyY + cellSize*0.3); ctx.lineTo(cx + cellSize*0.13 - legSwing, ground - cellSize*0.03); ctx.stroke();
+      ctx.strokeStyle = '#9fb2c7'; ctx.lineWidth = Math.max(1, cellSize * 0.055);
+      ctx.beginPath(); ctx.moveTo(cx - cellSize*0.18 + legSwing, ground - cellSize*0.015); ctx.lineTo(cx - cellSize*0.05 + legSwing, ground - cellSize*0.015); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + cellSize*0.08 - legSwing, ground - cellSize*0.015); ctx.lineTo(cx + cellSize*0.21 - legSwing, ground - cellSize*0.015); ctx.stroke();
+
+      var armor = ctx.createLinearGradient(cx - cellSize*0.23, 0, cx + cellSize*0.23, 0);
+      armor.addColorStop(0, '#30465e'); armor.addColorStop(0.45, '#c9d8e5'); armor.addColorStop(0.72, '#718aa3'); armor.addColorStop(1, '#24364d');
+      ctx.fillStyle = armor;
+      ctx.beginPath(); ctx.moveTo(cx - cellSize*0.22, bodyY); ctx.lineTo(cx + cellSize*0.22, bodyY); ctx.lineTo(cx + cellSize*0.2, bodyY + cellSize*0.34); ctx.lineTo(cx, bodyY + cellSize*0.43); ctx.lineTo(cx - cellSize*0.2, bodyY + cellSize*0.34); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#e5f4ff'; ctx.lineWidth = Math.max(1, cellSize * 0.035); ctx.stroke();
+      ctx.strokeStyle = '#506a84'; ctx.beginPath(); ctx.moveTo(cx, bodyY + cellSize*0.04); ctx.lineTo(cx, bodyY + cellSize*0.36); ctx.stroke();
+
+      ctx.fillStyle = '#dbe8f0';
+      ctx.beginPath(); ctx.arc(cx, bodyY - cellSize*0.12, cellSize*0.17, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#354b63'; ctx.beginPath(); ctx.arc(cx, bodyY - cellSize*0.15, cellSize*0.18, Math.PI, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#172638'; ctx.fillRect(cx - cellSize*0.17, bodyY - cellSize*0.13, cellSize*0.34, cellSize*0.09);
+      ctx.fillStyle = '#7fe5ff'; ctx.fillRect(cx + cellSize*0.03, bodyY - cellSize*0.105, cellSize*0.1, cellSize*0.025);
+      ctx.fillStyle = '#dbe8f0'; ctx.fillRect(cx - cellSize*0.19, bodyY - cellSize*0.08, cellSize*0.05, cellSize*0.17);
+      ctx.fillStyle = '#e44b54'; ctx.fillRect(cx - cellSize*0.04, bodyY - cellSize*0.32, cellSize*0.035, cellSize*0.12);
+
+      ctx.fillStyle = '#b9cddd';
+      ctx.beginPath(); ctx.arc(cx - cellSize*0.25, bodyY + cellSize*0.12, cellSize*0.1, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#ccdce8'; ctx.lineWidth = Math.max(2, cellSize * 0.07);
+      ctx.beginPath(); ctx.moveTo(cx + cellSize*0.2, bodyY + cellSize*0.1); ctx.lineTo(cx + cellSize*0.31, bodyY + cellSize*0.22); ctx.stroke();
+
+      ctx.fillStyle = '#b72f3c';
+      ctx.beginPath(); ctx.moveTo(cx - cellSize*0.21, bodyY + cellSize*0.27); ctx.lineTo(cx - cellSize*0.32, bodyY + cellSize*0.7); ctx.lineTo(cx - cellSize*0.03, bodyY + cellSize*0.48); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#e8f7ff'; ctx.strokeStyle = '#6c879f'; ctx.lineWidth = Math.max(1, cellSize * 0.03);
+      ctx.beginPath(); ctx.arc(cx - cellSize*0.29, bodyY + cellSize*0.2, cellSize*0.14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#5f7890'; ctx.beginPath(); ctx.moveTo(cx - cellSize*0.4, bodyY + cellSize*0.2); ctx.lineTo(cx - cellSize*0.18, bodyY + cellSize*0.2); ctx.stroke();
+
+      var swordAngle = isCasting ? -1.35 + attack * 2.95 : -0.92 + walk * 0.06;
+      var handX = cx + cellSize*0.25, handY = bodyY + cellSize*0.13;
+      ctx.strokeStyle = '#8198ad'; ctx.lineWidth = Math.max(2, cellSize * 0.08);
+      ctx.beginPath(); ctx.moveTo(cx + cellSize*0.12, bodyY + cellSize*0.08); ctx.lineTo(handX, handY); ctx.stroke();
+      ctx.fillStyle = '#f0c36a';
+      ctx.beginPath(); ctx.arc(handX, handY, cellSize * 0.065, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.translate(handX, handY); ctx.rotate(swordAngle);
+      var bladeLength = cellSize * 0.72;
+      var bladeWidth = cellSize * 0.095;
+      var blade = ctx.createLinearGradient(0, -bladeWidth, 0, bladeWidth);
+      blade.addColorStop(0, '#f6fdff'); blade.addColorStop(0.48, '#a8c7d9'); blade.addColorStop(1, '#4e718c');
+      ctx.fillStyle = blade;
+      ctx.beginPath();
+      ctx.moveTo(cellSize*0.04, -bladeWidth);
+      ctx.lineTo(bladeLength, 0);
+      ctx.lineTo(cellSize*0.04, bladeWidth);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#e9fbff'; ctx.lineWidth = Math.max(1, cellSize * 0.025);
+      ctx.beginPath(); ctx.moveTo(cellSize*0.08, -bladeWidth*0.45); ctx.lineTo(bladeLength*0.82, 0); ctx.stroke();
+      ctx.strokeStyle = '#d79b43'; ctx.lineWidth = Math.max(2, cellSize * 0.07);
+      ctx.beginPath(); ctx.moveTo(-cellSize*0.06, -cellSize*0.13); ctx.lineTo(-cellSize*0.06, cellSize*0.13); ctx.stroke();
+      ctx.strokeStyle = '#64452b'; ctx.lineWidth = Math.max(2, cellSize * 0.06);
+      ctx.beginPath(); ctx.moveTo(-cellSize*0.1, 0); ctx.lineTo(-cellSize*0.22, 0); ctx.stroke();
+      ctx.restore();
+      if (isCasting) {
+        ctx.strokeStyle = 'rgba(255,224,137,0.85)'; ctx.lineWidth = Math.max(1, cellSize * 0.04);
+        ctx.beginPath(); ctx.arc(handX, handY, cellSize*0.52, -1.25, 0.4); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    var knightSheet = new Image();
+    knightSheet.src = '/knight_sheet.png';
+
+    function drawKnightSheet(px, py) {
+      if (!knightSheet.complete || !knightSheet.naturalWidth) return;
+      var now = performance.now();
+      var row = character.hp <= 0 ? 3 : isCasting ? 2 : isMoving ? 1 : 0;
+      var frameCount = row === 1 ? 8 : 6;
+      var frame = row === 0 ? 0 : Math.floor(now / (row === 2 ? 95 : 125)) % frameCount;
+      var frameWidth = 344;
+      var frameHeight = 384;
+      var drawHeight = cellSize;
+      var drawWidth = drawHeight * frameWidth / frameHeight;
+      var drawY = py;
+      ctx.save();
+      ctx.translate(px + cellSize / 2, 0);
+      ctx.scale(playerFacing, 1);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(knightSheet, frame * frameWidth, row * frameHeight, frameWidth, frameHeight,
+        -drawWidth / 2, drawY, drawWidth, drawHeight);
+      ctx.restore();
+    }
+
     function drawPlayer(sx, sy) {
       var px = sx, py = sy;
-      var sprite = PLAYER_SPRITES[characterClass] || PLAYER_SPRITES.Warrior;
-      var glow = characterClass === 'Mage' ? 'rgba(68,136,255,0.3)' : characterClass === 'Rogue' ? 'rgba(57,255,20,0.25)' : 'rgba(0,240,255,0.3)';
       ctx.save();
       if (character.invisible) ctx.globalAlpha = 0.28;
-      drawSmallPixelCharacter(px, py, sprite, glow);
+      drawKnightSheet(px, py);
       ctx.restore();
     }
 
@@ -1880,6 +1990,8 @@
     async function sendMove(direction) {
       if (!classSelected || gameOver || gameWon || isMoving) return;
       isMoving = true;
+      if (direction === 'left') playerFacing = -1;
+      if (direction === 'right') playerFacing = 1;
       var prevHp = character.hp;
       try {
         var res = await fetch(apiUrl('/api/move'), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({direction:direction}) });
