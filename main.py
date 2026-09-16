@@ -36,6 +36,7 @@ FOG_FOGGY = 2
 
 EXP_TO_LEVEL = 100
 ENEMY_COUNT = 8
+MAX_ENEMY_COUNT = 20
 CHEST_COUNT = 3
 BASE_ATTACK = 15
 ENEMY_KILL_GOLD = 15
@@ -845,9 +846,10 @@ def spawn_enemies() -> None:
     candidates = get_spawn_candidates(exclude)
     random.shuffle(candidates)
 
+    enemy_count = min(MAX_ENEMY_COUNT, ENEMY_COUNT + (current_floor - 1) // 5)
     type_pool = ["Goblin"] * 5 + ["Skeleton Archer"] * 3 + (["Orc Bruiser"] * 2 if current_floor >= 2 else [])
 
-    for x, y in candidates[:ENEMY_COUNT]:
+    for x, y in candidates[:enemy_count]:
         etype = random.choice(type_pool)
         stats = _scale_enemy(etype, current_floor)
         enemies.append({

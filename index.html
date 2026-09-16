@@ -2390,7 +2390,12 @@
       }
       if (merchant && merchant.x >= 0 && merchant.y >= 0) {
         mctx.fillStyle = '#39ff14';
-        mctx.fillRect(merchant.x * cell + 1, merchant.y * cell + 1, Math.max(2, cell - 2), Math.max(2, cell - 2));
+        var merchantSize = Math.max(4, cell * 1.8);
+        var merchantOffset = (cell - merchantSize) / 2;
+        mctx.fillRect(merchant.x * cell + merchantOffset, merchant.y * cell + merchantOffset, merchantSize, merchantSize);
+        mctx.strokeStyle = '#d8ff9a';
+        mctx.lineWidth = Math.max(1, cell * 0.35);
+        mctx.strokeRect(merchant.x * cell + merchantOffset, merchant.y * cell + merchantOffset, merchantSize, merchantSize);
       }
       if (stairs && stairs.x >= 0 && stairs.y >= 0) {
         mctx.fillStyle = '#aa66ff';
@@ -2398,7 +2403,14 @@
       }
       if (secretKey && secretKey.active) {
         mctx.fillStyle = '#ffe36a';
-        mctx.fillRect(secretKey.x * cell + 1, secretKey.y * cell + 1, Math.max(2, cell - 2), Math.max(2, cell - 2));
+        var keySize = Math.max(4, cell * 1.8);
+        var keyOffset = (cell - keySize) / 2;
+        mctx.fillRect(secretKey.x * cell + keyOffset, secretKey.y * cell + keyOffset, keySize, keySize);
+        mctx.fillStyle = '#fff7bd';
+        mctx.fillRect(secretKey.x * cell + cell * 0.28, secretKey.y * cell + cell * 0.28, cell * 0.44, cell * 0.44);
+        mctx.strokeStyle = '#fff7bd';
+        mctx.lineWidth = Math.max(1, cell * 0.3);
+        mctx.strokeRect(secretKey.x * cell + keyOffset, secretKey.y * cell + keyOffset, keySize, keySize);
       }
       if (boss) {
         mctx.fillStyle = '#ff6600';
