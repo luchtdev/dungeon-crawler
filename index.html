@@ -588,11 +588,11 @@
     .shop-buy-btn, .restart-btn, .surface-btn { border-radius: 10px; }
     .floor-notif { border-radius: 12px; background: rgba(16,29,35,0.94); box-shadow: 0 12px 30px rgba(0,0,0,0.3); }
     @media (max-width: 859px) {
-      .game-ui { max-width: 520px; }
+      .game-ui { max-width: none; }
       .hud-topline { margin: 6px 8px 0; }
       .hud-bar { margin: 0 8px; border: 1px solid var(--line); border-radius: 14px !important; }
       .hud-panels { margin: 0 8px; }
-      .map-section { margin: 0 8px; }
+      .map-section { margin: 0; }
       .log-section, .controls-section { width: calc(100% - 16px); }
     }
     @media (max-width: 859px) and (orientation: landscape) and (min-height: 360px) {
@@ -676,7 +676,8 @@
       #minimapCanvas { width: 54px; height: 54px; }
     }
     @media (max-width: 859px) and (orientation: portrait) {
-      .map-section { padding-bottom: 76px; }
+      .map-section { padding: 0 0 76px; }
+      .canvas-frame { width: 100%; padding: 0; border-left: 0; border-right: 0; border-radius: 0 !important; }
       .minimap-panel {
         right: 10px;
         bottom: 10px;
@@ -992,7 +993,7 @@
     'use strict';
 
     const GRID_SIZE = 48, VIEW_SIZE = 12;
-    const API_BASE = window.GAME_API_BASE || window.location.origin;
+    const API_BASE = window.GAME_API_BASE || (window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : window.location.origin);
     function apiUrl(path) { return API_BASE + path; }
     const TILE = 0, WALL = 1, STAIRS = 2, SECRET_DOOR = 3;
     const FOG_DARK = 0, FOG_VISIBLE = 1, FOG_FOGGY = 2;
@@ -1579,12 +1580,12 @@
     function resizeCanvas() {
       if (!classSelected) return;
       var frame = canvas.parentElement;
-      var w = frame.clientWidth - 4;
+      var w = frame.clientWidth;
       var mapStyle = getComputedStyle(mapSection);
       var verticalPadding = parseFloat(mapStyle.paddingTop) + parseFloat(mapStyle.paddingBottom);
       var h = mapSection.clientHeight - verticalPadding - 10;
       if (w <= 0 || h <= 0) { requestAnimationFrame(resizeCanvas); return; }
-      var size = Math.min(w, h, window.innerWidth - 8);
+      var size = Math.min(w, h);
       cellSize = Math.max(1, Math.floor(size / VIEW_SIZE));
       var cs = cellSize * VIEW_SIZE;
       canvas.width = cs; canvas.height = cs;
