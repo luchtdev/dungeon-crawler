@@ -1484,6 +1484,10 @@ async def on_startup():
     init_database()
     clear_runtime_state()
 
+@app.get("/knight_sheet.png")
+async def get_knight_sheet():
+    return FileResponse(BASE_DIR / "knight_sheet.png")
+
 
 @app.get("/")
 @app.get("/index.html")
