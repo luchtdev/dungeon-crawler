@@ -228,8 +228,13 @@
       padding: 4px 8px calc(8px + var(--safe-bottom));
       display: flex; align-items: center; justify-content: space-between; gap: 10px;
       border: 3px solid var(--panel-border); background: var(--bg-panel); box-shadow: 0 0 15px rgba(255, 0, 85, 0.3); }
-    .dpad-row { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
-    .action-row { display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .dpad-row { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; order: 2; }
+    .action-row { display: flex; align-items: center; justify-content: center; gap: 8px; order: 1; }
+    @media (orientation: portrait) {
+      .controls-section { justify-content: space-between; }
+      .action-row { order: 1; }
+      .dpad-row { order: 2; }
+    }
     .dpad { display: grid; grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(3, 48px);
       gap: 4px; touch-action: none; user-select: none; }
     .controls-section .minimap-panel {
@@ -2804,19 +2809,23 @@
 
     document.getElementById('dpad').querySelectorAll('.dpad-btn[data-dir]').forEach(function(btn) {
       var dir = btn.dataset.dir;
-      function press(e) { e.preventDefault(); if (classSelected&&!gameOver&&!gameWon) { btn.classList.add('pressed'); playActionSound('move'); sendMove(dir); } }
+      function press(e) {
+        e.preventDefault();
+        if (classSelected && !gameOver && !gameWon) {
+          btn.classList.add('pressed');
+          playActionSound('move');
+          sendMove(dir);
+        }
+      }
       function release() { btn.classList.remove('pressed'); }
-      btn.addEventListener('touchstart', press, {passive:false});
-      btn.addEventListener('touchend', function(e){e.preventDefault();release();},{passive:false});
-      btn.addEventListener('touchcancel', release);
-      btn.addEventListener('mousedown', press);
-      btn.addEventListener('mouseup', release);
-      btn.addEventListener('mouseleave', release);
+      btn.addEventListener('pointerdown', press, { passive: false });
+      btn.addEventListener('pointerup', release, { passive: false });
+      btn.addEventListener('pointerleave', release);
+      btn.addEventListener('pointercancel', release);
     });
 
-    attackBtn.addEventListener('click', function(e){e.preventDefault();castFireball();});
-    attackBtn.addEventListener('touchstart', function(e){e.preventDefault();castFireball();},{passive:false});
-    statusBtn.addEventListener('click', function(){statusOverlay.classList.add('active');});
+    attackBtn.addEventListener('pointerdown', function(e){ e.preventDefault(); castFireball(); }, { passive: false });
+    statusBtn.addEventListener('pointerdown', function(e){ e.preventDefault(); statusOverlay.classList.add('active'); }, { passive: false });
     if (shopBtn) {
       shopBtn.addEventListener('click', function(){if(atMerchant)shopOverlay.classList.add('active');else addLog('Tuccarin yakininda degilsin!','info');});
     }
