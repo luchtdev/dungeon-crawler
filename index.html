@@ -226,7 +226,7 @@
     .log-msg.item   { color: #cc88ff; }
     .controls-section { position: relative; z-index: 2; flex-shrink: 0; width: calc(100% - 24px); max-width: 600px; min-height: 164px; margin: auto auto 12px;
       padding: 4px 8px calc(8px + var(--safe-bottom));
-      display: flex; align-items: center; justify-content: center; gap: 10px;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
       border: 3px solid var(--panel-border); background: var(--bg-panel); box-shadow: 0 0 15px rgba(255, 0, 85, 0.3); }
     .dpad-row { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
     .action-row { display: flex; align-items: center; justify-content: center; gap: 8px; }
@@ -1183,6 +1183,14 @@
       <div class="combat-log" id="combatLog"></div>
     </section>
     <section class="controls-section">
+      <div class="action-row">
+        <button type="button" class="action-btn attack" id="attackBtn" disabled>
+          <span class="action-icon"><span class="fire-icon" aria-hidden="true"></span></span>Attak
+        </button>
+        <button type="button" class="action-btn status" id="statusBtn">
+          <span class="action-icon action-panel-icon status-action-icon" aria-hidden="true"></span>Durum
+        </button>
+      </div>
       <div class="dpad-row">
         <div class="dpad" id="dpad">
           <button type="button" class="dpad-btn up" data-dir="up">&uarr;</button>
@@ -1191,14 +1199,6 @@
           <button type="button" class="dpad-btn right" data-dir="right">&rarr;</button>
           <button type="button" class="dpad-btn down" data-dir="down">&darr;</button>
         </div>
-      </div>
-      <div class="action-row">
-        <button type="button" class="action-btn attack" id="attackBtn" disabled>
-          <span class="action-icon"><span class="fire-icon" aria-hidden="true"></span></span>Attak
-        </button>
-        <button type="button" class="action-btn status" id="statusBtn">
-          <span class="action-icon action-panel-icon status-action-icon" aria-hidden="true"></span>Durum
-        </button>
       </div>
       <div class="minimap-panel" aria-label="Harita mini görünüm">
         <canvas id="minimapCanvas" width="90" height="90"></canvas>
