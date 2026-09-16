@@ -12,7 +12,7 @@
   <link rel="icon" type="image/svg+xml" href="./icon.svg">
   <title>Cyber Dungeon RPG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     button { font: inherit; -webkit-user-select: none; user-select: none; }
@@ -198,6 +198,11 @@
       -webkit-overflow-scrolling: touch; }
     .log-entry { padding: 1px 0; animation: fadeIn 0.2s ease; }
     @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+    .log-entry.log-expiring { animation: logFlyAway 0.45s ease-in forwards; pointer-events: none; }
+    @keyframes logFlyAway {
+      from { opacity: 1; transform: translate3d(0, 0, 0); }
+      to { opacity: 0; transform: translate3d(18px, -18px, 0) scale(0.96); }
+    }
     .log-time { color: var(--neon-cyan); }
     .log-msg.info   { color: var(--text-muted); }
     .log-msg.combat { color: #ff6688; }
@@ -442,6 +447,288 @@
     .dpad-btn:active, .dpad-btn.pressed, .action-btn:active:not(:disabled) { box-shadow: 1px 1px 0 #0a0809; }
     .class-card, .modal-panel { box-shadow: 5px 5px 0 #0a0809; }
     .floor-notif { border-radius: 0; background: #21171b; box-shadow: 4px 4px 0 #0a0809; }
+    @media (min-width: 860px) {
+      html, body { overflow: hidden; }
+      body {
+        background:
+          linear-gradient(rgba(240,195,106,0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(240,195,106,0.025) 1px, transparent 1px),
+          radial-gradient(ellipse at 50% 0%, rgba(240,195,106,0.1), transparent 48%),
+          #120e12;
+        background-size: 32px 32px, 32px 32px, auto, auto;
+      }
+      .game-ui {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 310px;
+        grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+        gap: 12px;
+        width: min(100%, 1400px);
+        max-width: 1400px;
+        padding: 16px;
+        overflow: hidden;
+      }
+      .hud-topline, .hud-bar, .hud-panels { grid-column: 1 / -1; }
+      .hud-topline { padding: 12px 14px; }
+      .hud-bar { padding: 8px 10px; gap: 8px; }
+      .stat-badge { min-height: 48px; }
+      .hud-panels { padding: 0; grid-template-columns: 1fr 1.15fr; gap: 8px; }
+      .hud-panels.has-boss { grid-template-columns: 1fr 1.15fr; }
+      .hud-panel { padding: 10px 12px; }
+      .map-section {
+        grid-column: 1;
+        grid-row: 4 / 6;
+        min-width: 0;
+        padding: 0;
+        gap: 10px;
+        align-items: stretch;
+        justify-content: center;
+        background: #21171b;
+        border: 1px solid #5d4035;
+        box-shadow: 4px 4px 0 #0a0809;
+      }
+      .canvas-frame { flex: 1; min-height: 0; border-width: 3px; }
+      #gameCanvas { max-height: 100%; }
+      .minimap-panel { flex: 0 0 auto; width: auto; margin: 0 10px 10px; }
+      .log-section {
+        grid-column: 2;
+        grid-row: 4;
+        align-self: stretch;
+        width: auto;
+        max-width: none;
+        margin: 0;
+      }
+      .combat-log { height: auto; min-height: 150px; }
+      .controls-section {
+        grid-column: 2;
+        grid-row: 5;
+        width: auto;
+        max-width: none;
+        min-height: 180px;
+        margin: 0;
+        border: 1px solid #5d4035;
+        box-shadow: 4px 4px 0 #0a0809;
+      }
+    }
+    @media (min-width: 1180px) {
+      .game-ui { grid-template-columns: minmax(0, 1fr) 350px; }
+      .controls-section { min-height: 205px; }
+      .dpad { grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(3, 56px); }
+      .action-btn.status { left: 12px; }
+      .action-btn.shop { right: 12px; }
+    }
+    /* Modern interface skin */
+    :root {
+      --bg-dark: #071014; --bg-panel: #101d23;
+      --neon-cyan: #6ee7f5; --neon-magenta: #ff7b72;
+      --neon-green: #72f1b8; --neon-yellow: #f6c85f;
+      --neon-red: #ff6b78; --neon-orange: #ff9f68;
+      --text-primary: #edf7f5; --text-muted: #789096;
+      --surface-raised: #15272e; --line: rgba(164, 226, 222, 0.14);
+    }
+    html, body { background: var(--bg-dark); font-family: 'DM Sans', sans-serif; }
+    body {
+      background:
+        radial-gradient(circle at 8% 0%, rgba(110,231,245,0.12), transparent 32%),
+        radial-gradient(circle at 92% 100%, rgba(114,241,184,0.08), transparent 30%),
+        linear-gradient(135deg, #071014 0%, #0a171c 52%, #071014 100%);
+    }
+    .loading-overlay, .class-overlay, .auth-overlay, .status-overlay, .shop-overlay,
+    .game-over-overlay, .victory-overlay, .level-up-overlay { background: rgba(5, 13, 17, 0.86); backdrop-filter: blur(18px); }
+    .loading-text, .auth-hint, .class-sub, .auth-error { font-family: 'IBM Plex Mono', monospace; }
+    .auth-panel, .modal-panel {
+      border: 1px solid var(--line); border-radius: 20px !important; background: rgba(16,29,35,0.92);
+      box-shadow: 0 24px 70px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+    }
+    .class-title, .victory-title { font-family: 'DM Sans', sans-serif !important; letter-spacing: -0.04em; }
+    .auth-tabs { gap: 8px; }
+    .auth-tab, .auth-input, .auth-submit { border-radius: 10px !important; }
+    .auth-tab { border-color: var(--line); color: var(--text-muted); background: rgba(255,255,255,0.025); }
+    .auth-tab.active { border-color: var(--neon-cyan); background: rgba(110,231,245,0.1); color: var(--neon-cyan); }
+    .auth-input { border-color: var(--line); background: rgba(3,11,14,0.55); }
+    .auth-submit { background: linear-gradient(135deg, var(--neon-cyan), var(--neon-green)); color: #071014; box-shadow: 0 10px 24px rgba(110,231,245,0.16); }
+    .class-card { border: 1px solid var(--line); border-radius: 16px !important; background: rgba(16,29,35,0.88); box-shadow: none !important; }
+    .class-card:not(:disabled):hover, .class-card:not(:disabled):active { border-color: var(--neon-cyan); background: rgba(110,231,245,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.22) !important; }
+    .class-icon { border-radius: 12px !important; }
+    .game-ui { color: var(--text-primary); }
+    .hud-topline, .hud-bar, .hud-panels, .controls-section { background: rgba(16,29,35,0.82); }
+    .hud-topline, .hud-bar, .hud-panels, .map-section, .log-section, .controls-section { border-color: var(--line); }
+    .hud-topline, .hud-bar, .hud-panel, .minimap-panel, .log-section, .controls-section,
+    .canvas-frame, .stat-badge, .class-card, .modal-panel, .quest-block, .shop-item,
+    .action-btn, .dpad-btn, .settings-pill, .menu-tag { border-radius: 16px !important; }
+    .hud-topline, .hud-panel-title, .hud-panel-value, .badge-label, .badge-value,
+    .menu-tag, .settings-pill, .log-header, .action-btn, .modal-title, .section-title,
+    .class-title, .class-name, .quest-block-title { font-family: 'DM Sans', sans-serif !important; }
+    .hud-topline { padding: 12px 16px; border: 1px solid var(--line); box-shadow: 0 12px 30px rgba(0,0,0,0.14); }
+    .character-avatar { border-radius: 12px !important; border-color: rgba(110,231,245,0.5); background: rgba(110,231,245,0.1); box-shadow: none; }
+    .identity-kicker, .badge-label, .hud-panel-meta, .mini-legend { font-family: 'IBM Plex Mono', monospace; }
+    .menu-tag, .settings-pill { border-color: var(--line); background: rgba(255,255,255,0.04); color: var(--neon-cyan); }
+    .settings-pill:hover { border-color: var(--neon-cyan); background: rgba(110,231,245,0.1); }
+    .stat-badge, .hud-panel { background: rgba(21,39,46,0.82); box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); }
+    .stat-badge { border-color: var(--line); }
+    .hp-badge { border-color: rgba(255,107,120,0.45); }
+    .atk-badge { border-color: rgba(110,231,245,0.4); }
+    .mp-badge { border-color: rgba(145,157,255,0.42); }
+    .floor-badge { border-color: rgba(114,241,184,0.42); }
+    .canvas-frame { border: 1px solid rgba(110,231,245,0.28); box-shadow: 0 18px 40px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,0.035); background: #050c10; }
+    .canvas-frame::before { inset: 6px; border-radius: 12px; border-color: rgba(110,231,245,0.08); }
+    .canvas-frame::after { display: block; background: radial-gradient(ellipse at center, transparent 64%, rgba(0,0,0,0.34) 100%); }
+    .minimap-panel { background: rgba(16,29,35,0.88); border-color: rgba(114,241,184,0.2); box-shadow: none; }
+    #minimapCanvas { border-radius: 10px; border-color: rgba(114,241,184,0.32); }
+    .log-section { background: rgba(10,22,27,0.86); box-shadow: 0 14px 34px rgba(0,0,0,0.16); }
+    .log-header { color: var(--neon-cyan); border-bottom-color: var(--line); background: rgba(110,231,245,0.05); }
+    .combat-log { font-family: 'IBM Plex Mono', monospace; }
+    .controls-section { background: rgba(16,29,35,0.88); box-shadow: 0 14px 34px rgba(0,0,0,0.18); }
+    .dpad-btn, .action-btn { box-shadow: none; background: rgba(110,231,245,0.06); border-color: rgba(110,231,245,0.25); }
+    .dpad-btn:hover, .dpad-btn:active, .dpad-btn.pressed { background: rgba(110,231,245,0.16); box-shadow: 0 8px 22px rgba(110,231,245,0.14); }
+    .action-btn.attack { color: var(--neon-orange); background: rgba(255,159,104,0.1); border-color: rgba(255,159,104,0.42); }
+    .action-btn.status { color: var(--neon-cyan); }
+    .action-btn.shop { color: var(--neon-green); background: rgba(114,241,184,0.08); border-color: rgba(114,241,184,0.35); }
+    .modal-close { border-radius: 9px; border-color: rgba(255,107,120,0.4); }
+    .equip-slot, .inv-item, .achievement-item, .shop-item, .quest-block { border-radius: 11px; background: rgba(3,11,14,0.32); border-color: var(--line); }
+    .shop-buy-btn, .restart-btn, .surface-btn { border-radius: 10px; }
+    .floor-notif { border-radius: 12px; background: rgba(16,29,35,0.94); box-shadow: 0 12px 30px rgba(0,0,0,0.3); }
+    @media (max-width: 859px) {
+      .game-ui { max-width: 520px; }
+      .hud-topline { margin: 6px 8px 0; }
+      .hud-bar { margin: 0 8px; border: 1px solid var(--line); border-radius: 14px !important; }
+      .hud-panels { margin: 0 8px; }
+      .map-section { margin: 0 8px; }
+      .log-section, .controls-section { width: calc(100% - 16px); }
+    }
+    @media (max-width: 859px) and (orientation: landscape) and (min-height: 360px) {
+      .game-ui {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 220px;
+        grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+        gap: 8px;
+        width: 100%;
+        max-width: 900px;
+        padding: 8px;
+      }
+      .hud-topline, .hud-bar, .hud-panels { grid-column: 1 / -1; }
+      .hud-topline { margin: 0; padding: 8px 12px; }
+      .hud-bar { margin: 0; padding: 5px 7px; }
+      .stat-badge { min-height: 38px; }
+      .hud-panels { margin: 0; padding: 0; }
+      .hud-panel { padding: 6px 8px; }
+      .map-section {
+        grid-column: 1;
+        grid-row: 4 / 6;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        gap: 6px;
+      }
+      .canvas-frame { min-height: 0; }
+      .minimap-panel { margin: 0 6px 6px; padding: 4px 7px; }
+      #minimapCanvas { width: 54px; height: 54px; }
+      .log-section {
+        grid-column: 2;
+        grid-row: 4;
+        width: auto;
+        max-width: none;
+        margin: 0;
+      }
+      .combat-log { height: auto; min-height: 64px; padding: 6px 8px; }
+      .controls-section {
+        grid-column: 2;
+        grid-row: 5;
+        width: auto;
+        min-height: 128px;
+        margin: 0;
+        padding: 3px 6px;
+      }
+      .dpad { grid-template-columns: repeat(3, 38px); grid-template-rows: repeat(3, 38px); gap: 3px; }
+      .dpad-btn { font-size: 0.9rem; }
+      .action-btn.status, .action-btn.shop { width: 58px; height: 42px; }
+      .action-btn.attack { width: 40px; height: 40px; }
+      .action-btn { font-size: 0.4rem; }
+      .action-btn .action-icon { font-size: 0.75rem; }
+    }
+    /* Compact floating radar: it no longer consumes map height. */
+    .map-section { position: relative; }
+    .minimap-panel {
+      position: absolute;
+      right: 14px;
+      bottom: 14px;
+      z-index: 4;
+      width: auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      padding: 7px;
+      border-radius: 12px !important;
+      background: rgba(10, 24, 29, 0.9);
+      border-color: rgba(114,241,184,0.3);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.06);
+      backdrop-filter: blur(8px);
+    }
+    .mini-label { font-size: 0.42rem; letter-spacing: 0.1em; }
+    #minimapCanvas { width: 68px; height: 68px; }
+    @media (max-width: 859px) and (orientation: portrait) {
+      .minimap-panel { right: 12px; bottom: 12px; }
+      #minimapCanvas { width: 62px; height: 62px; }
+    }
+    @media (max-width: 380px) and (orientation: portrait) {
+      .minimap-panel { right: 8px; bottom: 8px; padding: 5px; }
+      #minimapCanvas { width: 54px; height: 54px; }
+    }
+    @media (max-width: 859px) and (orientation: portrait) {
+      .map-section { padding-bottom: 76px; }
+      .minimap-panel {
+        right: 10px;
+        bottom: 10px;
+        flex-direction: row;
+        gap: 8px;
+        padding: 5px 7px;
+      }
+      .mini-label { white-space: nowrap; }
+      #minimapCanvas { width: 54px; height: 54px; }
+    }
+    @media (max-width: 380px) and (orientation: portrait) {
+      .map-section { padding-bottom: 68px; }
+      .minimap-panel { right: 7px; bottom: 7px; gap: 6px; padding: 4px 6px; }
+      #minimapCanvas { width: 48px; height: 48px; }
+    }
+    .minimap-panel {
+      min-width: 0;
+      padding: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+    .mini-label { display: none; }
+    #minimapCanvas { border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+    /* Balanced action controls */
+    .action-btn.status, .action-btn.shop {
+      top: 50%;
+      left: auto;
+      right: auto;
+      width: clamp(52px, 13vw, 60px);
+      height: 38px;
+      min-height: 38px;
+      padding: 2px 3px;
+      border-radius: 10px !important;
+    }
+    .action-btn.status { left: 12px; }
+    .action-btn.shop { right: 12px; }
+    .action-btn.status .action-icon, .action-btn.shop .action-icon { font-size: 0.68rem; }
+    @media (max-width: 859px) and (orientation: landscape) and (min-height: 360px) {
+      .dpad { grid-template-columns: repeat(3, 34px); grid-template-rows: repeat(3, 34px); gap: 3px; }
+      .action-btn.status, .action-btn.shop {
+        width: 44px;
+        height: 34px;
+        min-height: 34px;
+        padding: 1px;
+        font-size: 0.34rem;
+      }
+      .action-btn.status { left: 4px; }
+      .action-btn.shop { right: 4px; }
+      .action-btn.status .action-icon, .action-btn.shop .action-icon { font-size: 0.58rem; }
+    }
   </style>
 </head>
 <body>
@@ -537,7 +824,6 @@
         <canvas id="gameCanvas"></canvas>
       </div>
       <div class="minimap-panel">
-        <span class="mini-label"><span class="legend-dot" style="background:var(--neon-green)"></span> Minimap</span>
         <canvas id="minimapCanvas" width="90" height="90"></canvas>
       </div>
     </section>
@@ -881,6 +1167,8 @@
     const minimapCanvas = document.getElementById('minimapCanvas');
     const ctx = canvas.getContext('2d');
     const minimapCtx = minimapCanvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    minimapCtx.imageSmoothingEnabled = false;
     const mapSection = document.getElementById('mapSection');
     const combatLog = document.getElementById('combatLog');
     const gameUi = document.getElementById('gameUi');
@@ -1008,6 +1296,11 @@
       combatLog.appendChild(el);
       combatLog.scrollTop = combatLog.scrollHeight;
       while (combatLog.children.length > 50) combatLog.removeChild(combatLog.firstChild);
+      setTimeout(function() {
+        if (!el.isConnected) return;
+        el.classList.add('log-expiring');
+        setTimeout(function() { if (el.isConnected) el.remove(); }, 450);
+      }, 5000);
     }
     function processLogs(logs) {
       if (!logs) return;
@@ -1286,9 +1579,10 @@
     function resizeCanvas() {
       if (!classSelected) return;
       var frame = canvas.parentElement;
-      var minimapHeight = minimapCanvas ? minimapCanvas.offsetHeight + 8 : 0;
       var w = frame.clientWidth - 4;
-      var h = mapSection.clientHeight - 10 - minimapHeight;
+      var mapStyle = getComputedStyle(mapSection);
+      var verticalPadding = parseFloat(mapStyle.paddingTop) + parseFloat(mapStyle.paddingBottom);
+      var h = mapSection.clientHeight - verticalPadding - 10;
       if (w <= 0 || h <= 0) { requestAnimationFrame(resizeCanvas); return; }
       var size = Math.min(w, h, window.innerWidth - 8);
       cellSize = Math.max(1, Math.floor(size / VIEW_SIZE));
@@ -1480,17 +1774,46 @@
       ctx.restore();
     }
 
+    var monsterSheet = new Image();
+    monsterSheet.src = '/monters.png';
+
     function drawEnemy(sx, sy, e) {
       var px = sx, py = sy;
       var spriteKey = e.name === 'Orc Bruiser' ? 'Orc Bruiser' : (e.name === 'Skeleton Archer' ? 'Skeleton Archer' : 'Goblin');
       var glow = e.name === 'Orc Bruiser' ? 'rgba(68,187,68,0.25)' : e.name === 'Skeleton Archer' ? 'rgba(255,204,102,0.2)' : 'rgba(255,34,68,0.24)';
-      drawSmallPixelCharacter(px, py, SPRITES[spriteKey], glow);
+      var parts = {
+        'Goblin': { x: 0, width: 220 },
+        'Skeleton Archer': { x: 210, width: 225 },
+        'Orc Bruiser': { x: 390, width: 300 }
+      };
+      var part = parts[spriteKey];
+      var facing = player.x < e.x ? -1 : 1;
+      if (!drawMonsterPart(px, py, part, glow, facing)) drawSmallPixelCharacter(px, py, SPRITES[spriteKey], glow);
 
       // HP bar
       var hpRatio = Math.max(0, e.hp / e.max_hp);
       ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(px + 2, py - 6, cellSize - 4, 4);
       ctx.fillStyle = hpRatio > 0.5 ? '#39ff14' : hpRatio > 0.25 ? '#ffe600' : '#ff2244';
       ctx.fillRect(px + 2, py - 6, Math.max(2, (cellSize - 4) * hpRatio), 4);
+    }
+
+    function drawMonsterPart(px, py, part, glowColor, facing) {
+      if (!part || !monsterSheet.complete || !monsterSheet.naturalWidth) return false;
+      var sourceHeight = monsterSheet.naturalHeight;
+      var padding = Math.max(1, cellSize * 0.04);
+      var scale = Math.min((cellSize - padding * 2) / part.width, (cellSize - padding * 2) / sourceHeight) * 1.2;
+      var drawWidth = part.width * scale;
+      var drawHeight = sourceHeight * scale;
+      var drawX = px + (cellSize - drawWidth) / 2;
+      var drawY = py + cellSize - drawHeight - padding;
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.translate(px + cellSize / 2, 0);
+      ctx.scale(facing || 1, 1);
+      ctx.drawImage(monsterSheet, part.x, 0, part.width, sourceHeight,
+        drawX - (px + cellSize / 2), drawY, drawWidth, drawHeight);
+      ctx.restore();
+      return true;
     }
 
     function drawBoss(sx, sy) {
@@ -1606,21 +1929,20 @@
 
     function drawKnightSheet(px, py) {
       if (!knightSheet.complete || !knightSheet.naturalWidth) return;
-      var now = performance.now();
-      var row = character.hp <= 0 ? 3 : isCasting ? 2 : isMoving ? 1 : 0;
-      var frameCount = row === 1 ? 8 : 6;
-      var frame = row === 0 ? 0 : Math.floor(now / (row === 2 ? 95 : 125)) % frameCount;
-      var frameWidth = 344;
-      var frameHeight = 384;
-      var drawHeight = cellSize;
-      var drawWidth = drawHeight * frameWidth / frameHeight;
-      var drawY = py;
+      var frameWidth = knightSheet.naturalWidth;
+      var frameHeight = knightSheet.naturalHeight;
+      var padding = Math.max(1, cellSize * 0.08);
+      var scale = Math.min((cellSize - padding * 2) / frameWidth, (cellSize - padding * 2) / frameHeight) * 1.2;
+      var drawWidth = frameWidth * scale;
+      var drawHeight = frameHeight * scale;
+      var drawX = px + (cellSize - drawWidth) / 2;
+      var drawY = py + cellSize - drawHeight - padding;
       ctx.save();
       ctx.translate(px + cellSize / 2, 0);
       ctx.scale(playerFacing, 1);
       ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(knightSheet, frame * frameWidth, row * frameHeight, frameWidth, frameHeight,
-        -drawWidth / 2, drawY, drawWidth, drawHeight);
+      ctx.drawImage(knightSheet, 0, 0, frameWidth, frameHeight,
+        drawX - (px + cellSize / 2), drawY, drawWidth, drawHeight);
       ctx.restore();
     }
 
