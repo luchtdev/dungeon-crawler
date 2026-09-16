@@ -60,7 +60,15 @@ LEVEL_UP_CHOICES = {
 
 QUEST_TEMPLATES = [
     {"type": "kill_enemies", "name": "Goblin Avla", "target": 3},
+    {"type": "kill_enemies", "name": "Zindanı Temizle", "target": 5},
+    {"type": "kill_enemies", "name": "Avcı Protokolü", "target": 8},
     {"type": "collect_gold", "name": "Altın Topla", "target": 50},
+    {"type": "collect_gold", "name": "Hazine Kasasını Doldur", "target": 100},
+    {"type": "collect_gold", "name": "Zenginlik Operasyonu", "target": 150},
+    {"type": "open_chests", "name": "Sandık Avcısı", "target": 1},
+    {"type": "open_chests", "name": "Kayıp Hazineler", "target": 2},
+    {"type": "reach_floor", "name": "Derinliklere İn", "target": 3},
+    {"type": "reach_floor", "name": "Son Seviyeye Yaklaş", "target": 5},
 ]
 
 SHOP_ITEMS = {
@@ -158,7 +166,7 @@ ACHIEVEMENTS = {
     "level_5": {"name": "Usta Savasci", "description": "5. seviyeye ulas", "icon": "⭐"},
     "floor_10": {"name": "Derinliklere", "description": "10. kata ulas", "icon": "🗺️"},
     "gold_1000": {"name": "Hazine Avcisi", "description": "Toplam 1000 altin kazan", "icon": "💰"},
-    "boss_slayer": {"name": "Ejderha Avcisi", "description": "Cyber-Dragon'u yen", "icon": "🐉"},
+    "boss_slayer": {"name": "Üstün Başarı: Ejderha Avcısı", "description": "Cyber-Dragon'u yen", "icon": "🐉"},
 }
 
 
@@ -403,6 +411,8 @@ def load_game_state(user_id: int) -> None:
     boss_entity = state.get("boss_entity")
     class_selected, character_class = state.get("class_selected", False), state.get("character_class")
     daily_quest = state.get("daily_quest", {})
+    if daily_quest.get("completed"):
+        init_daily_quest(exclude_name=daily_quest.get("name"))
     current_floor, secret_map_index = state.get("current_floor", 1), state.get("secret_map_index", 1)
     secret_key = state.get("secret_key", {"x": -1, "y": -1, "active": False})
     secret_door = state.get("secret_door", {"x": -1, "y": -1, "open": False})
@@ -969,9 +979,10 @@ def enter_secret_map(logs: list) -> None:
 # ---------------------------------------------------------------------------
 # Quest
 # ---------------------------------------------------------------------------
-def init_daily_quest() -> None:
+def init_daily_quest(exclude_name: Optional[str] = None) -> None:
     global daily_quest
-    tmpl = random.choice(QUEST_TEMPLATES)
+    candidates = [tmpl for tmpl in QUEST_TEMPLATES if tmpl["name"] != exclude_name]
+    tmpl = random.choice(candidates or QUEST_TEMPLATES)
     daily_quest = {
         "type": tmpl["type"], "name": tmpl["name"],
         "target": tmpl["target"], "progress": 0,
@@ -986,10 +997,15 @@ def get_daily_quest_status() -> dict:
 def try_complete_quest(logs: list) -> bool:
     if daily_quest.get("completed") or daily_quest["progress"] < daily_quest["target"]:
         return False
+    completed_name = daily_quest["name"]
+    reward = daily_quest["reward"]
     daily_quest["completed"] = True
-    player_state["gold"] += daily_quest["reward"]
+    player_state["gold"] += reward
     logs.append({"type": "quest",
-                 "message": f"Günlük görev tamamlandı! +{daily_quest['reward']} Altın"})
+                 "message": f"Görev tamamlandı: {completed_name}! +{reward} Altın"})
+    init_daily_quest(exclude_name=completed_name)
+    logs.append({"type": "quest",
+                 "message": f"Yeni görev: {daily_quest['name']}"})
     return True
 
 
@@ -1005,6 +1021,20 @@ def on_gold_collected(amount: int, logs: list) -> None:
     if daily_quest.get("type") == "collect_gold":
         daily_quest["progress"] = min(daily_quest["target"],
                                       daily_quest["progress"] + amount)
+        try_complete_quest(logs)
+
+
+def on_chest_opened(logs: list) -> None:
+    if daily_quest.get("completed"): return
+    if daily_quest.get("type") == "open_chests":
+        daily_quest["progress"] += 1
+        try_complete_quest(logs)
+
+
+def on_floor_reached(logs: list) -> None:
+    if daily_quest.get("completed"): return
+    if daily_quest.get("type") == "reach_floor":
+        daily_quest["progress"] += 1
         try_complete_quest(logs)
 
 
@@ -1081,6 +1111,7 @@ def descend_floor(logs: list) -> None:
         logs.append({"type": "exp",
                      "message": f"🔽 Kat {current_floor}/{MAX_FLOOR}'e indin! +{heal} HP iyileşti."})
 
+    on_floor_reached(logs)
     update_fog(0, 0)
 
 # ---------------------------------------------------------------------------
@@ -1229,7 +1260,10 @@ def collect_chest(logs: list) -> None:
         apply_exp(CHEST_EXP)
         logs.append({"type": "gold",
                      "message": f"Hazine buldun! +{CHEST_GOLD} 💰 +{CHEST_EXP} EXP"})
-        on_gold_collected(CHEST_GOLD, logs)
+        if daily_quest.get("type") == "collect_gold":
+            on_gold_collected(CHEST_GOLD, logs)
+        elif daily_quest.get("type") == "open_chests":
+            on_chest_opened(logs)
         break
 
 # ---------------------------------------------------------------------------
@@ -1487,6 +1521,10 @@ async def on_startup():
 @app.get("/knight_sheet.png")
 async def get_knight_sheet():
     return FileResponse(BASE_DIR / "knight_sheet.png")
+
+@app.get("/monters.png")
+async def get_monsters():
+    return FileResponse(BASE_DIR / "monters.png")
 
 
 @app.get("/")
