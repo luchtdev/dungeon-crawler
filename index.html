@@ -810,6 +810,10 @@
       box-shadow: none;
       backdrop-filter: none;
       cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      pointer-events: auto;
       transition: transform 0.2s ease, width 0.2s ease, height 0.2s ease, left 0.2s ease, top 0.2s ease, right 0.2s ease, bottom 0.2s ease;
     }
     .minimap-panel.is-expanded {
@@ -1593,13 +1597,23 @@
     const minimapPanel = document.querySelector('.minimap-panel');
 
     let minimapExpanded = false;
+    let minimapLastToggleAt = 0;
     function toggleMinimapSize() {
       minimapExpanded = !minimapExpanded;
       minimapPanel.classList.toggle('is-expanded', minimapExpanded);
       minimapPanel.setAttribute('aria-expanded', String(minimapExpanded));
     }
+    function activateMinimap(event) {
+      var now = Date.now();
+      if (now - minimapLastToggleAt < 300) return;
+      minimapLastToggleAt = now;
+      if (event && event.cancelable) event.preventDefault();
+      toggleMinimapSize();
+    }
     if (minimapPanel) {
-      minimapPanel.addEventListener('click', toggleMinimapSize);
+      minimapPanel.addEventListener('pointerup', activateMinimap, { passive: false });
+      minimapPanel.addEventListener('touchend', activateMinimap, { passive: false });
+      minimapPanel.addEventListener('click', activateMinimap);
       minimapPanel.addEventListener('keydown', function(event) {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
