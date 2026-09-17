@@ -18,6 +18,9 @@ from pydantic import BaseModel, Field
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "cyber_dungeon.sqlite3"
+DB_BACKUP_DIR = BASE_DIR / "backups"
+MAX_DB_BACKUPS = 30
+ACCOUNT_LOG_PATH = BASE_DIR / "account_log.txt"
 SESSION_COOKIE = "cyber_dungeon_session"
 SESSION_DAYS = 30
 STATE_SAVE_INTERVAL = 2.0
@@ -176,6 +179,9 @@ ACHIEVEMENTS = {
 def db_connect() -> sqlite3.Connection:
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
+    connection.execute("PRAGMA journal_mode = WAL")
+    connection.execute("PRAGMA synchronous = FULL")
     return connection
 
 
@@ -211,6 +217,11 @@ def init_database() -> None:
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
             );
+            CREATE TRIGGER IF NOT EXISTS prevent_user_delete
+            BEFORE DELETE ON users
+            BEGIN
+                SELECT RAISE(ABORT, 'User accounts are permanent');
+            END;
         """)
         user_columns = {row["name"] for row in connection.execute("PRAGMA table_info(users)")}
         migrations = {
@@ -221,6 +232,26 @@ def init_database() -> None:
         for column, statement in migrations.items():
             if column not in user_columns:
                 connection.execute(statement)
+
+
+def backup_database() -> None:
+    if not DB_PATH.exists():
+        return
+    DB_BACKUP_DIR.mkdir(exist_ok=True)
+    backup_path = DB_BACKUP_DIR / (
+        "cyber_dungeon_" + datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + ".sqlite3"
+    )
+    source = db_connect()
+    target = sqlite3.connect(backup_path)
+    try:
+        source.backup(target)
+        target.commit()
+    finally:
+        target.close()
+        source.close()
+    backups = sorted(DB_BACKUP_DIR.glob("cyber_dungeon_*.sqlite3"), key=lambda path: path.stat().st_mtime, reverse=True)
+    for old_backup in backups[MAX_DB_BACKUPS:]:
+        old_backup.unlink(missing_ok=True)
 
 
 def record_auth_event(username: str, event_type: str, user_id: Optional[int] = None) -> None:
@@ -242,6 +273,38 @@ def record_auth_event(username: str, event_type: str, user_id: Optional[int] = N
             )
 
 
+def append_account_log(event_type: str, username: str, timestamp: Optional[str] = None) -> None:
+    timestamp = timestamp or datetime.now(timezone.utc).isoformat()
+    labels = {
+        "register": "KAYIT",
+        "login_success": "GIRIS_BASARILI",
+        "login_failed": "GIRIS_BASARISIZ",
+    }
+    line = f"{labels.get(event_type, event_type.upper())} | tarih={timestamp} | kullanici={username}\n"
+    try:
+        with ACCOUNT_LOG_PATH.open("a", encoding="utf-8") as log_file:
+            log_file.write(line)
+    except OSError:
+        pass
+
+
+def sync_registered_accounts_to_log() -> None:
+    try:
+        existing_log = ACCOUNT_LOG_PATH.read_text(encoding="utf-8") if ACCOUNT_LOG_PATH.exists() else ""
+        with db_connect() as connection:
+            users = connection.execute(
+                "SELECT username, created_at FROM users ORDER BY created_at"
+            ).fetchall()
+        with ACCOUNT_LOG_PATH.open("a", encoding="utf-8") as log_file:
+            for user in users:
+                marker = f"KAYIT | tarih={user['created_at']} | kullanici={user['username']}"
+                if marker not in existing_log:
+                    log_file.write(marker + "\n")
+                    existing_log += marker + "\n"
+    except OSError:
+        pass
+
+
 def hash_password(password: str, salt: Optional[bytes] = None) -> str:
     salt = salt or secrets.token_bytes(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 180_000)
@@ -260,7 +323,7 @@ def verify_password(password: str, encoded: str) -> bool:
 
 
 def session_user_id(request: Request) -> Optional[int]:
-    token = request.cookies.get(SESSION_COOKIE)
+    token = request.cookies.get(SESSION_COOKIE) or request.headers.get("x-session-token")
     if not token:
         return None
     now = datetime.now(timezone.utc).isoformat()
@@ -271,7 +334,7 @@ def session_user_id(request: Request) -> Optional[int]:
     return int(row["user_id"]) if row else None
 
 
-def create_session(user_id: int, response: Response) -> None:
+def create_session(user_id: int, response: Response) -> str:
     token = secrets.token_urlsafe(32)
     expires = datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS)
     with db_connect() as connection:
@@ -282,6 +345,7 @@ def create_session(user_id: int, response: Response) -> None:
         )
     response.set_cookie(SESSION_COOKIE, token, max_age=SESSION_DAYS * 86400,
                         httponly=True, samesite="lax", secure=False, path="/")
+    return token
 
 
 def account_achievements() -> list:
@@ -1536,6 +1600,8 @@ def require_class_selected():
 @app.on_event("startup")
 async def on_startup():
     init_database()
+    backup_database()
+    sync_registered_accounts_to_log()
     clear_runtime_state()
 
 @app.get("/icon.svg")
@@ -1591,9 +1657,10 @@ async def register(payload: AuthRequest, response: Response):
     except sqlite3.IntegrityError:
         raise HTTPException(409, detail="Bu kullanici adi zaten alinmis")
     record_auth_event(payload.username, "register", user_id)
+    append_account_log("register", payload.username, created_at)
     load_game_state(user_id)
-    create_session(user_id, response)
-    return {**build_status(), "success": True, "message": "Hesap olusturuldu"}
+    token = create_session(user_id, response)
+    return {**build_status(), "success": True, "message": "Hesap olusturuldu", "session_token": token}
 
 
 @app.post("/api/auth/login")
@@ -1602,12 +1669,14 @@ async def login(payload: AuthRequest, response: Response):
         row = connection.execute("SELECT id, password_hash FROM users WHERE username = ?", (payload.username,)).fetchone()
     if not row or not verify_password(payload.password, row["password_hash"]):
         record_auth_event(payload.username, "login_failed", int(row["id"]) if row else None)
+        append_account_log("login_failed", payload.username)
         raise HTTPException(401, detail="Kullanici adi veya parola hatali")
     user_id = int(row["id"])
     record_auth_event(payload.username, "login_success", user_id)
+    append_account_log("login_success", payload.username)
     load_game_state(user_id)
-    create_session(user_id, response)
-    return {**build_status(), "success": True, "message": "Giris yapildi"}
+    token = create_session(user_id, response)
+    return {**build_status(), "success": True, "message": "Giris yapildi", "session_token": token}
 
 
 def require_admin_log_key(request: Request) -> None:

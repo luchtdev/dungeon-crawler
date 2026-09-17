@@ -809,9 +809,31 @@
       border: 0;
       box-shadow: none;
       backdrop-filter: none;
+      cursor: pointer;
+      transition: transform 0.2s ease, width 0.2s ease, height 0.2s ease, left 0.2s ease, top 0.2s ease, right 0.2s ease, bottom 0.2s ease;
+    }
+    .minimap-panel.is-expanded {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      right: auto;
+      bottom: auto;
+      width: clamp(180px, 28vw, 220px);
+      height: clamp(180px, 28vw, 220px);
+      transform: translate(-50%, -50%);
+      padding: 10px;
+      background: rgba(10, 24, 29, 0.95);
+      border: 1px solid rgba(114,241,184,0.3);
+      border-radius: 14px;
+      box-shadow: 0 18px 36px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.06);
+      z-index: 10;
+    }
+    .minimap-panel.is-expanded #minimapCanvas {
+      width: 100%;
+      height: 100%;
     }
     .mini-label { display: none; }
-    #minimapCanvas { border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+    #minimapCanvas { border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.3); transition: width 0.2s ease, height 0.2s ease; }
     /* Balanced action controls */
     .action-btn.status, .action-btn.shop {
       top: 50%;
@@ -1328,7 +1350,28 @@
         ? 'http://127.0.0.1:8001'
         : (window.location.port === '8000' ? 'http://127.0.0.1:8001' : window.location.origin)
     );
+    const AUTH_TOKEN_KEY = 'cyber_dungeon_session_token';
+    function getSessionToken() {
+      try { return localStorage.getItem(AUTH_TOKEN_KEY) || ''; } catch (e) { return ''; }
+    }
+    function saveSessionToken(token) {
+      if (!token) return;
+      try { localStorage.setItem(AUTH_TOKEN_KEY, token); } catch (e) {}
+    }
+    function clearSessionToken() {
+      try { localStorage.removeItem(AUTH_TOKEN_KEY); } catch (e) {}
+    }
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = function(input, init = {}) {
+      const nextInit = { ...init, credentials: init.credentials ?? 'include' };
+      const headers = new Headers(nextInit.headers || {});
+      const token = getSessionToken();
+      if (token) headers.set('X-Session-Token', token);
+      nextInit.headers = headers;
+      return originalFetch(input, nextInit);
+    };
     function apiUrl(path) { return API_BASE + path; }
+    function assetUrl(path) { return apiUrl(path); }
     const TILE = 0, WALL = 1, STAIRS = 2, SECRET_DOOR = 3;
     const FOG_DARK = 0, FOG_VISIBLE = 1, FOG_FOGGY = 2;
     const FIREBALL_COST = 20, FIREBALL_RANGE = 3;
@@ -1547,6 +1590,27 @@
     const achievementList = document.getElementById('achievementList');
     const floorNotif = document.getElementById('floorNotif');
     const canvasFrame = document.getElementById('canvasFrame');
+    const minimapPanel = document.querySelector('.minimap-panel');
+
+    let minimapExpanded = false;
+    function toggleMinimapSize() {
+      minimapExpanded = !minimapExpanded;
+      minimapPanel.classList.toggle('is-expanded', minimapExpanded);
+      minimapPanel.setAttribute('aria-expanded', String(minimapExpanded));
+    }
+    if (minimapPanel) {
+      minimapPanel.addEventListener('click', toggleMinimapSize);
+      minimapPanel.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggleMinimapSize();
+        }
+      });
+      minimapPanel.tabIndex = 0;
+      minimapPanel.setAttribute('role', 'button');
+      minimapPanel.setAttribute('aria-label', 'Haritayı büyüt / küçült');
+      minimapPanel.setAttribute('aria-expanded', 'false');
+    }
 
     // State
     let map = [], fogMatrix = [], enemies = [], chests = [];
@@ -2132,7 +2196,7 @@
     }
 
     var monsterSheet = new Image();
-    monsterSheet.src = '/monters.png';
+    monsterSheet.src = assetUrl('/monters.png');
 
     function drawEnemy(sx, sy, e) {
       var px = sx, py = sy;
@@ -2282,7 +2346,7 @@
     }
 
     var knightSheet = new Image();
-    knightSheet.src = '/knight_sheet.png';
+    knightSheet.src = assetUrl('/knight_sheet.png');
 
     function drawKnightSheet(px, py) {
       if (!knightSheet.complete || !knightSheet.naturalWidth) return;
@@ -2310,10 +2374,137 @@
       drawKnightSheet(px, py);
       ctx.restore();
     }
+    function drawMinimapStairs(x, y, size) {
+      var centerX = x + size / 2;
+      var centerY = y + size / 2;
+      minimapCtx.fillStyle = '#a66cff';
+      minimapCtx.beginPath();
+      minimapCtx.arc(centerX, centerY, Math.max(2, size * 0.34), 0, Math.PI * 2);
+      minimapCtx.fill();
+      minimapCtx.strokeStyle = '#eadbff';
+      minimapCtx.lineWidth = Math.max(1, size * 0.08);
+      minimapCtx.stroke();
+    }
+    function drawMinimapSecretDoor(x, y, size, isOpen) {
+      var centerX = x + size / 2;
+      var centerY = y + size / 2;
+      minimapCtx.fillStyle = '#ff334f';
+      minimapCtx.beginPath();
+      minimapCtx.arc(centerX, centerY, Math.max(2, size * 0.34), 0, Math.PI * 2);
+      minimapCtx.fill();
+      minimapCtx.strokeStyle = '#ffd1d8';
+      minimapCtx.lineWidth = Math.max(1, size * 0.08);
+      minimapCtx.stroke();
+    }
+    function drawMinimapMerchant(x, y, size) {
+      var centerX = x + size / 2;
+      var centerY = y + size / 2;
+      minimapCtx.fillStyle = '#20e879';
+      minimapCtx.beginPath();
+      minimapCtx.arc(centerX, centerY, Math.max(2, size * 0.34), 0, Math.PI * 2);
+      minimapCtx.fill();
+      minimapCtx.strokeStyle = '#c8ffdf';
+      minimapCtx.lineWidth = Math.max(1, size * 0.08);
+      minimapCtx.stroke();
+    }
+    function drawMinimapKey(x, y, size) {
+      var centerX = x + size / 2;
+      var centerY = y + size / 2;
+      minimapCtx.fillStyle = '#ffe23b';
+      minimapCtx.beginPath();
+      minimapCtx.arc(centerX, centerY, Math.max(2, size * 0.34), 0, Math.PI * 2);
+      minimapCtx.fill();
+      minimapCtx.strokeStyle = '#fff9b0';
+      minimapCtx.lineWidth = Math.max(1, size * 0.08);
+      minimapCtx.stroke();
+    }
+    function drawMinimapPlayer(x, y, size) {
+      var px = x + size * 0.22;
+      var py = y + size * 0.18;
+      var s = size * 0.56;
+      minimapCtx.fillStyle = '#00f0ff';
+      minimapCtx.beginPath();
+      minimapCtx.moveTo(px + s * 0.5, py);
+      minimapCtx.lineTo(px + s, py + s * 0.5);
+      minimapCtx.lineTo(px + s * 0.5, py + s);
+      minimapCtx.lineTo(px, py + s * 0.5);
+      minimapCtx.closePath();
+      minimapCtx.fill();
+      minimapCtx.strokeStyle = '#c7fdff';
+      minimapCtx.lineWidth = Math.max(1, size * 0.08);
+      minimapCtx.strokeRect(px + s * 0.12, py + s * 0.12, s * 0.76, s * 0.76);
+    }
 
     function drawFogOverlay(sx, sy) {
       ctx.fillStyle = COLORS.fogOverlay;
-      ctx.fillRect(sx*cellSize, sy*cellSize, cellSize, cellSize);
+      ctx.fillRect(sx * cellSize, sy * cellSize, cellSize, cellSize);
+    }
+
+    function drawFloatTexts(now) {
+      var duration = 600;
+      floatTexts = floatTexts.filter(function(item) { return now - item.born < duration; });
+      floatTexts.forEach(function(item) {
+        if (!inViewport(item.wx, item.wy, getCamera())) return;
+        var camera = getCamera();
+        var screen = wts(item.wx, item.wy, camera);
+        ctx.save();
+        ctx.globalAlpha = 1 - (now - item.born) / duration;
+        ctx.fillStyle = item.color;
+        ctx.font = 'bold ' + Math.max(9, Math.floor(cellSize * 0.55)) + 'px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(item.text, screen.x + cellSize / 2, screen.y + cellSize / 2 - cellSize * 0.8);
+        ctx.restore();
+      });
+    }
+
+    function drawAoeEffect(now) {
+      if (!aoeEffect || now - aoeEffect.born > 400) {
+        aoeEffect = null;
+        return;
+      }
+      var life = 1 - (now - aoeEffect.born) / 400;
+      var camera = getCamera();
+      ctx.fillStyle = 'rgba(255,100,20,' + (life * 0.35) + ')';
+      for (var dy = -aoeEffect.radius; dy <= aoeEffect.radius; dy++) {
+        for (var dx = -aoeEffect.radius; dx <= aoeEffect.radius; dx++) {
+          var wx = aoeEffect.cx + dx;
+          var wy = aoeEffect.cy + dy;
+          if (!inViewport(wx, wy, camera)) continue;
+          var screen = wts(wx, wy, camera);
+          ctx.fillRect(screen.x, screen.y, cellSize, cellSize);
+        }
+      }
+    }
+
+    function renderMinimap() {
+      if (!map.length) return;
+      var size = minimapCanvas.width;
+      var cell = size / map.length;
+      minimapCtx.clearRect(0, 0, size, size);
+      minimapCtx.fillStyle = '#05080f';
+      minimapCtx.fillRect(0, 0, size, size);
+      for (var y = 0; y < map.length; y++) {
+        for (var x = 0; x < map[y].length; x++) {
+          var tile = map[y][x];
+          minimapCtx.fillStyle = tile === WALL ? '#243447' : tile === STAIRS ? '#2a2253' : tile === SECRET_DOOR ? '#490f25' : '#111b2c';
+          minimapCtx.fillRect(x * cell, y * cell, cell, cell);
+        }
+      }
+      if (stairs && stairs.x >= 0 && stairs.y >= 0) drawMinimapStairs(stairs.x * cell, stairs.y * cell, cell);
+      if (secretDoor && secretDoor.x >= 0 && secretDoor.y >= 0) drawMinimapSecretDoor(secretDoor.x * cell, secretDoor.y * cell, cell, !!secretDoor.open);
+      if (merchant && merchant.x >= 0 && merchant.y >= 0) drawMinimapMerchant(merchant.x * cell, merchant.y * cell, cell);
+      if (secretKey && secretKey.active && secretKey.x >= 0 && secretKey.y >= 0) drawMinimapKey(secretKey.x * cell, secretKey.y * cell, cell);
+      enemies.forEach(function(enemy) {
+        minimapCtx.fillStyle = enemy.name === 'Skeleton Archer' ? '#ffcc66' : enemy.name === 'Orc Bruiser' ? '#44bb44' : '#ff2244';
+        minimapCtx.fillRect(enemy.x * cell + cell * 0.2, enemy.y * cell + cell * 0.2, cell * 0.6, cell * 0.6);
+      });
+      if (boss) {
+        minimapCtx.fillStyle = '#ff6600';
+        minimapCtx.fillRect(boss.x * cell + cell * 0.15, boss.y * cell + cell * 0.15, cell * 0.7, cell * 0.7);
+      }
+      drawMinimapPlayer(player.x * cell, player.y * cell, cell);
+      minimapCtx.strokeStyle = 'rgba(0,240,255,0.35)';
+      minimapCtx.strokeRect(0, 0, size, size);
     }
 
     function drawFogVignette(cam) {
@@ -2321,110 +2512,10 @@
       var psy = (player.y-cam.y)*cellSize+cellSize/2;
       var radius = cellSize*4.5;
       var grad = ctx.createRadialGradient(psx, psy, radius*0.55, psx, psy, radius*1.6);
-      grad.addColorStop(0, 'rgba(0,0,0,0)');
       grad.addColorStop(0.6, 'rgba(0,0,0,0.3)');
       grad.addColorStop(1, 'rgba(0,0,0,0.9)');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    function drawFloatTexts(now) {
-      var dur = 600;
-      floatTexts = floatTexts.filter(function(f) { return now - f.born < dur; });
-      if (!floatTexts.length) return;
-      var cam = getCamera();
-      floatTexts.forEach(function(f) {
-        if (!inViewport(f.wx, f.wy, cam)) return;
-        var s = wts(f.wx, f.wy, cam);
-        var age = now - f.born, life = 1 - age/dur;
-        var offsetY = (age/dur)*cellSize*2.5;
-        ctx.save();
-        ctx.globalAlpha = life;
-        ctx.font = 'bold '+Math.max(9, Math.floor(cellSize*0.55))+'px "Share Tech Mono",monospace';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 4;
-        ctx.fillStyle = f.color;
-        ctx.fillText(f.text, s.x+cellSize/2, s.y+cellSize/2-offsetY);
-        ctx.restore();
-      });
-    }
-
-    function drawAoeEffect(now) {
-      if (!aoeEffect) return;
-      var age = now - aoeEffect.born;
-      if (age > 400) { aoeEffect = null; return; }
-      var cam = getCamera();
-      var life = 1 - age/400;
-      var r = aoeEffect.radius;
-      for (var dy2 = -r; dy2 <= r; dy2++) {
-        for (var dx2 = -r; dx2 <= r; dx2++) {
-          var wx2 = aoeEffect.cx + dx2, wy2 = aoeEffect.cy + dy2;
-          if (!inViewport(wx2, wy2, cam)) continue;
-          var s2 = wts(wx2, wy2, cam);
-          ctx.fillStyle = 'rgba(255,'+(80+Math.floor(life*100))+',0,'+(life*0.65)+')';
-          ctx.fillRect(s2.x, s2.y, cellSize, cellSize);
-        }
-      }
-    }
-
-    // ── Main draw ─────────────────────────────────────────────────────────────
-    function renderMinimap() {
-      if (!map.length) return;
-      const mini = minimapCanvas;
-      const mctx = minimapCtx;
-      const miniSize = map.length;
-      const cell = mini.width / miniSize;
-      mctx.clearRect(0, 0, mini.width, mini.height);
-      mctx.fillStyle = '#05080f';
-      mctx.fillRect(0, 0, mini.width, mini.height);
-      for (let y = 0; y < miniSize; y++) {
-        for (let x = 0; x < miniSize; x++) {
-          const tile = map[y][x];
-          const px = x * cell; const py = y * cell;
-          if (tile === WALL) mctx.fillStyle = '#243447';
-          else if (tile === STAIRS) mctx.fillStyle = '#7d5cff';
-          else if (tile === SECRET_DOOR) mctx.fillStyle = secretDoor.open ? '#ffd36a' : '#ff6688';
-          else mctx.fillStyle = '#111b2c';
-          mctx.fillRect(px, py, cell, cell);
-        }
-      }
-      if (merchant && merchant.x >= 0 && merchant.y >= 0) {
-        mctx.fillStyle = '#39ff14';
-        var merchantSize = Math.max(4, cell * 1.8);
-        var merchantOffset = (cell - merchantSize) / 2;
-        mctx.fillRect(merchant.x * cell + merchantOffset, merchant.y * cell + merchantOffset, merchantSize, merchantSize);
-        mctx.strokeStyle = '#d8ff9a';
-        mctx.lineWidth = Math.max(1, cell * 0.35);
-        mctx.strokeRect(merchant.x * cell + merchantOffset, merchant.y * cell + merchantOffset, merchantSize, merchantSize);
-      }
-      if (stairs && stairs.x >= 0 && stairs.y >= 0) {
-        mctx.fillStyle = '#aa66ff';
-        mctx.fillRect(stairs.x * cell + 1, stairs.y * cell + 1, Math.max(2, cell - 2), Math.max(2, cell - 2));
-      }
-      if (secretKey && secretKey.active) {
-        mctx.fillStyle = '#ffe36a';
-        var keySize = Math.max(4, cell * 1.8);
-        var keyOffset = (cell - keySize) / 2;
-        mctx.fillRect(secretKey.x * cell + keyOffset, secretKey.y * cell + keyOffset, keySize, keySize);
-        mctx.fillStyle = '#fff7bd';
-        mctx.fillRect(secretKey.x * cell + cell * 0.28, secretKey.y * cell + cell * 0.28, cell * 0.44, cell * 0.44);
-        mctx.strokeStyle = '#fff7bd';
-        mctx.lineWidth = Math.max(1, cell * 0.3);
-        mctx.strokeRect(secretKey.x * cell + keyOffset, secretKey.y * cell + keyOffset, keySize, keySize);
-      }
-      if (boss) {
-        mctx.fillStyle = '#ff6600';
-        mctx.fillRect(boss.x * cell + 1, boss.y * cell + 1, Math.max(2, cell - 2), Math.max(2, cell - 2));
-      }
-      enemies.forEach(function(enemy) {
-        if (!enemy) return;
-        mctx.fillStyle = enemy.name === 'Skeleton Archer' ? '#ffcc66' : enemy.name === 'Orc Bruiser' ? '#44bb44' : '#ff2244';
-        mctx.fillRect(enemy.x * cell + 1, enemy.y * cell + 1, Math.max(2, cell - 2), Math.max(2, cell - 2));
-      });
-      mctx.fillStyle = '#00f0ff';
-      mctx.fillRect(player.x * cell + 1, player.y * cell + 1, Math.max(2, cell - 2), Math.max(2, cell - 2));
-      mctx.strokeStyle = 'rgba(0,240,255,0.35)';
-      mctx.strokeRect(0, 0, mini.width, mini.height);
     }
 
     function draw() {
@@ -2470,7 +2561,6 @@
           } else {
             drawTile(vx, vy, map[wy][wx]);
             drawDecoration(vx, vy, wx, wy, map[wy][wx]);
-            // Draw entities only in visible fog
             if (fog === FOG_FOGGY) drawFogOverlay(vx, vy);
           }
         }
@@ -2578,6 +2668,7 @@
         });
         var data = await res.json().catch(function(){return{};});
         if (!res.ok) throw new Error(data.detail || 'Kimlik doğrulama başarısız');
+        if (data.session_token) saveSessionToken(data.session_token);
         applyState(data);
         authOverlay.classList.remove('active');
         loadingOverlay.classList.add('hidden');
@@ -2596,7 +2687,7 @@
       }
     }
     async function logout() {
-      try { await fetch(apiUrl('/api/auth/logout'), {method:'POST'}); } finally { window.location.reload(); }
+      try { await fetch(apiUrl('/api/auth/logout'), {method:'POST'}); } finally { clearSessionToken(); window.location.reload(); }
     }
     function setClassButtonsEnabled(en) { classButtons.forEach(function(b) { b.disabled = !en; }); }
     function showClassError(msg) { classError.textContent = msg; classError.classList.add('visible'); }
@@ -2928,6 +3019,28 @@
       try {
         var res = await fetch(apiUrl('/api/status?_='+Date.now()), { cache:'no-store' });
         if (res.status === 401) {
+          const token = getSessionToken();
+          if (token) {
+            // retry once with explicit session token before showing auth screen
+            const retry = await fetch(apiUrl('/api/status?_='+Date.now()), {
+              cache:'no-store',
+              headers: { 'X-Session-Token': token }
+            });
+            if (retry.status === 401) {
+              clearSessionToken();
+            } else {
+              const data = await retry.json();
+              applyState(data);
+              loadingOverlay.classList.add('hidden');
+              initComplete = true;
+              if (data.class_selected) {
+                startGameFromState();
+              } else {
+                showClassSelect();
+              }
+              return;
+            }
+          }
           loadingOverlay.classList.add('hidden');
           initComplete = true;
           showAuth();
