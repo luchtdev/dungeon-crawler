@@ -13,7 +13,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -21,6 +21,7 @@ DB_PATH = BASE_DIR / "cyber_dungeon.sqlite3"
 DB_BACKUP_DIR = BASE_DIR / "backups"
 MAX_DB_BACKUPS = 30
 ACCOUNT_LOG_PATH = BASE_DIR / "account_log.txt"
+USER_LOG_PATH = BASE_DIR / "user_logs.txt"
 SESSION_COOKIE = "cyber_dungeon_session"
 SESSION_DAYS = 30
 STATE_SAVE_INTERVAL = 2.0
@@ -56,7 +57,7 @@ QUEST_REWARD = 100
 ITEM_DROP_CHANCE = 0.40
 MAX_FLOOR = 100
 BOSS_FLOOR = 100
-BOSS_AOE_INTERVAL = 3   # boss every N turns fires neon flame AoE
+BOSS_AOE_INTERVAL = 3
 
 LEVEL_UP_CHOICES = {
     "power": {"name": "Guc", "description": "+5 Saldiri"},
@@ -98,9 +99,6 @@ CLASS_STATS = {
     "Rogue":   {"hp": 105, "max_hp": 105, "mp": 40,  "max_mp": 40,  "attack_power": 15, "gold": 50},
 }
 
-# ---------------------------------------------------------------------------
-# Item / Equipment tables
-# ---------------------------------------------------------------------------
 ITEM_POOL = {
     "weapon": [
         {"id": "iron_sword",    "name": "Demir Kılıç",      "slot": "weapon",    "atk": 5,  "def": 0,  "rarity": "common"},
@@ -144,14 +142,14 @@ CYBER_DRAGON = {
     "hp": 2000,
     "max_hp": 2000,
     "damage": 40,
-    "defense": 15,         # flat damage reduction
+    "defense": 15,
     "exp": 5000,
     "gold": 1000,
     "move_speed": 1,
     "range": 1,
     "color": "#ff6600",
     "is_boss": True,
-    "aoe_timer": 0,        # counts turns since last AoE
+    "aoe_timer": 0,
     "x": 0,
     "y": 0,
     "move_timer": 0,
@@ -174,6 +172,28 @@ ACHIEVEMENTS = {
     "gold_1000": {"name": "Hazine Avcisi", "description": "Toplam 1000 altin kazan", "icon": "GOLD"},
     "boss_slayer": {"name": "Üstün Başarı: Ejderha Avcısı", "description": "Cyber-Dragon'u yen", "icon": "BOSS"},
 }
+
+
+def append_user_log(action: str, username: str, request: Request) -> None:
+    """Kullanıcının kayıt ve giriş işlemlerini IP ve Türkiye saatiyle txt'ye kaydeder."""
+    tr_tz = timezone(timedelta(hours=3))
+    now_str = datetime.now(tr_tz).strftime("%d.%m.%Y %H:%M:%S")
+    
+    # Render reverse-proxy arkasında çalıştığı için gerçek istemci IP'si X-Forwarded-For başlığındadır
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    elif request.client and request.client.host:
+        client_ip = request.client.host
+    else:
+        client_ip = "Bilinmiyor"
+
+    line = f"[{now_str}] | Islem: {action.upper()} | Kullanici: {username} | IP: {client_ip}\n"
+    try:
+        with USER_LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(line)
+    except OSError:
+        pass
 
 
 def db_connect() -> sqlite3.Connection:
@@ -362,9 +382,7 @@ def account_achievements() -> list:
         for achievement_id, definition in ACHIEVEMENTS.items()
     ]
 
-# ---------------------------------------------------------------------------
-# Global state
-# ---------------------------------------------------------------------------
+
 game_map: list = []
 fog_matrix: list = []
 enemies: list = []
@@ -375,7 +393,7 @@ next_enemy_id = 1
 game_over = False
 game_won = False
 pending_level_ups = 0
-boss_entity: Optional[dict] = None   # active boss on floor 100
+boss_entity: Optional[dict] = None
 current_user_id: Optional[int] = None
 last_state_save_at = 0.0
 achievement_cache_user_id: Optional[int] = None
@@ -397,7 +415,6 @@ player_state = {
     "damage_reduction": 0,
     "mp": BASE_MP, "max_mp": BASE_MP,
     "invisible_until": 0,
-    "invisible_until": 0,
     "level_attack_bonus": 0, "level_defense_bonus": 0,
     "level_max_hp_bonus": 0, "level_max_mp_bonus": 0,
     "x": 0, "y": 0,
@@ -405,9 +422,7 @@ player_state = {
     "stats": {"enemies_killed": 0, "total_gold_earned": 0, "highest_floor": 1, "games_won": 0},
 }
 
-# Equipment slots: None or item dict
 equipment: dict = {"weapon": None, "armor": None, "accessory": None}
-# Backpack inventory list of item dicts
 inventory: list = []
 MAX_INVENTORY = 12
 
@@ -527,8 +542,11 @@ def save_game_state() -> None:
 
 @app.middleware("http")
 async def account_state_middleware(request: Request, call_next):
-    public_paths = {"/", "/index.html", "/api/auth/register", "/api/auth/login", "/api/auth/logout",
-                    "/api/admin/account-log", "/favicon.ico"}
+    public_paths = {
+        "/", "/index.html", "/api/auth/register", "/api/auth/login", "/api/auth/logout",
+        "/api/admin/account-log", "/api/log-user", "/favicon.ico", "/view-logs",
+        "/icon.png", "/icon.svg", "/knight_sheet.png", "/monters.png"
+    }
     if request.url.path.startswith("/api/") and request.url.path not in public_paths:
         user_id = session_user_id(request)
         if not user_id:
@@ -543,9 +561,7 @@ async def account_state_middleware(request: Request, call_next):
         return response
     return await call_next(request)
 
-# ---------------------------------------------------------------------------
-# Pydantic models
-# ---------------------------------------------------------------------------
+
 class MoveRequest(BaseModel):
     direction: str = Field(..., pattern="^(up|down|left|right)$")
 
@@ -559,10 +575,10 @@ class SelectClassRequest(BaseModel):
     character_class: str = Field(..., pattern="^(Warrior|Mage|Rogue)$")
 
 class EquipRequest(BaseModel):
-    item_index: int   # index into inventory list
+    item_index: int
 
 class UnequipRequest(BaseModel):
-    slot: str   # "weapon" | "armor" | "accessory"
+    slot: str
 
 class LevelUpRequest(BaseModel):
     choice: str = Field(..., pattern="^(power|vitality|focus)$")
@@ -571,14 +587,16 @@ class AuthRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=24, pattern="^[A-Za-z0-9_]+$")
     password: str = Field(..., min_length=6, max_length=128)
 
-# ---------------------------------------------------------------------------
-# BSP Dungeon Generation
-# ---------------------------------------------------------------------------
+class UserLogPayload(BaseModel):
+    username: str
+    action: str
+
+
 class BSPNode:
     def __init__(self, x, y, w, h):
         self.x, self.y, self.w, self.h = x, y, w, h
         self.left = self.right = None
-        self.room = None  # (rx, ry, rw, rh)
+        self.room = None
 
     def split(self, min_size=7):
         if self.left or self.right:
@@ -587,10 +605,7 @@ class BSPNode:
         can_v = self.h >= min_size * 2
         if not can_h and not can_v:
             return
-        if can_h and can_v:
-            horizontal = random.choice([True, False])
-        else:
-            horizontal = can_v
+        horizontal = random.choice([True, False]) if (can_h and can_v) else can_v
         if horizontal:
             split_at = random.randint(min_size, self.h - min_size)
             self.left  = BSPNode(self.x, self.y, self.w, split_at)
@@ -606,13 +621,11 @@ class BSPNode:
         if self.left or self.right:
             if self.left:  self.left.create_rooms(grid)
             if self.right: self.right.create_rooms(grid)
-            # Connect child rooms with a corridor
             lr = self.left.get_room() if self.left else None
             rr = self.right.get_room() if self.right else None
             if lr and rr:
                 _carve_corridor(grid, lr, rr)
         else:
-            # Leaf: carve a room
             pad = 1
             rw = random.randint(4, max(4, self.w - pad * 2))
             rh = random.randint(4, max(4, self.h - pad * 2))
@@ -630,7 +643,7 @@ class BSPNode:
     def get_room(self):
         if self.room:
             return self.room
-        lr = self.left.get_room()  if self.left  else None
+        lr = self.left.get_room() if self.left else None
         rr = self.right.get_room() if self.right else None
         if lr and rr:
             return random.choice([lr, rr])
@@ -645,7 +658,6 @@ def _room_center(room):
 def _carve_corridor(grid, room_a, room_b):
     ax, ay = _room_center(room_a)
     bx, by = _room_center(room_b)
-    # L-shaped corridor
     if random.random() < 0.5:
         for x in range(min(ax, bx), max(ax, bx) + 1):
             if 0 < x < GRID_SIZE - 1: grid[ay][x] = TILE
@@ -663,7 +675,6 @@ def generate_bsp_map() -> list:
     root = BSPNode(0, 0, GRID_SIZE, GRID_SIZE)
     root.split(min_size=7)
     root.create_rooms(grid)
-    # Guarantee a comfortable 5x5 starting room around the player spawn.
     for yy in range(5):
         for xx in range(5):
             grid[yy][xx] = TILE
@@ -692,26 +703,20 @@ def get_reachable_cells(grid: list, start: tuple = (0, 0)) -> set:
 
 
 def ensure_map_connected(grid: list) -> None:
-    """Join every walkable map component so no destination is unreachable."""
     if not grid:
         return
-    walkable = {(x, y) for y in range(GRID_SIZE) for x in range(GRID_SIZE)
-                if grid[y][x] != WALL}
+    walkable = {(x, y) for y in range(GRID_SIZE) for x in range(GRID_SIZE) if grid[y][x] != WALL}
     reachable = get_reachable_cells(grid)
     while walkable - reachable:
-        target = min(walkable - reachable,
-                     key=lambda cell: min(manhattan(cell[0], cell[1], point[0], point[1])
-                                          for point in reachable))
-        anchor = min(reachable,
-                     key=lambda point: manhattan(point[0], point[1], target[0], target[1]))
+        target = min(walkable - reachable, key=lambda cell: min(manhattan(cell[0], cell[1], p[0], p[1]) for p in reachable))
+        anchor = min(reachable, key=lambda p: manhattan(p[0], p[1], target[0], target[1]))
         ax, ay = anchor
         tx, ty = target
         for x in range(min(ax, tx), max(ax, tx) + 1):
             grid[ay][x] = TILE
         for y in range(min(ay, ty), max(ay, ty) + 1):
             grid[y][tx] = TILE
-        walkable = {(x, y) for y in range(GRID_SIZE) for x in range(GRID_SIZE)
-                    if grid[y][x] != WALL}
+        walkable = {(x, y) for y in range(GRID_SIZE) for x in range(GRID_SIZE) if grid[y][x] != WALL}
         reachable = get_reachable_cells(grid)
 
 
@@ -723,15 +728,12 @@ def get_all_floor_tiles() -> list:
                 tiles.append((x, y))
     return tiles
 
-# ---------------------------------------------------------------------------
-# A* pathfinding
-# ---------------------------------------------------------------------------
+
 def heuristic(a, b):
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
 
 def astar(start, goal, occupied: set) -> Optional[tuple]:
-    """Return the first step toward goal, or None if unreachable."""
     if start == goal:
         return None
     open_set = [(0, start)]
@@ -739,28 +741,22 @@ def astar(start, goal, occupied: set) -> Optional[tuple]:
     g_score = {start: 0}
     visited = set()
     while open_set:
-        # manual min extraction (no heapq import needed; small grid)
         open_set.sort(key=lambda x: x[0])
         _, current = open_set.pop(0)
         if current in visited:
             continue
         visited.add(current)
         if current == goal:
-            # Reconstruct first step
             path = [current]
             while path[-1] in came_from:
                 path.append(came_from[path[-1]])
             path.reverse()
             return path[1] if len(path) > 1 else None
         cx, cy = current
-        for dx, dy in [(0,-1),(0,1),(-1,0),(1,0)]:
+        for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
             nx, ny = cx + dx, cy + dy
             nb = (nx, ny)
-            if not is_in_bounds(nx, ny):
-                continue
-            if game_map[ny][nx] == WALL:
-                continue
-            if nb in visited:
+            if not is_in_bounds(nx, ny) or game_map[ny][nx] == WALL or nb in visited:
                 continue
             if nb != goal and nb in occupied:
                 continue
@@ -773,9 +769,6 @@ def astar(start, goal, occupied: set) -> Optional[tuple]:
     return None
 
 
-# ---------------------------------------------------------------------------
-# Utility helpers
-# ---------------------------------------------------------------------------
 def is_in_bounds(x: int, y: int) -> bool:
     return 0 <= x < GRID_SIZE and 0 <= y < GRID_SIZE
 
@@ -820,12 +813,9 @@ def get_spawn_candidates(exclude: Optional[set] = None) -> list:
     return [(x, y) for y in range(GRID_SIZE) for x in range(GRID_SIZE)
             if game_map[y][x] == TILE and (x, y) not in exclude]
 
-# ---------------------------------------------------------------------------
-# Spawn helpers
-# ---------------------------------------------------------------------------
+
 def spawn_stairs() -> None:
     global stairs_pos
-    # No stairs on the final boss floor
     if current_floor >= BOSS_FLOOR or secret_map_index >= SECRET_MAP_COUNT:
         stairs_pos = {"x": -1, "y": -1}
         return
@@ -839,7 +829,6 @@ def spawn_stairs() -> None:
         sx, sy = candidates[0]
         stairs_pos = {"x": sx, "y": sy}
         game_map[sy][sx] = STAIRS
-        # Pre-reveal stairs tile so player can see it on the map (foggy = visited)
         if fog_matrix:
             for dy in range(-1, 2):
                 for dx in range(-1, 2):
@@ -862,7 +851,7 @@ def spawn_chests() -> None:
 
 def spawn_merchant() -> None:
     global merchant_state
-    exclude = {(player_state["x"], player_state["y"]), (0,0),(0,1),(1,0),(1,1)}
+    exclude = {(player_state["x"], player_state["y"]), (0, 0), (0, 1), (1, 0), (1, 1)}
     for c in chests:
         if c["active"]:
             exclude.add((c["x"], c["y"]))
@@ -893,8 +882,6 @@ def spawn_enemies() -> None:
     global enemies, next_enemy_id
     enemies = []
     next_enemy_id = 1
-
-    # Floor 100 = boss only — handled by spawn_boss()
     if current_floor >= BOSS_FLOOR or secret_map_index >= SECRET_MAP_COUNT:
         return
 
@@ -927,13 +914,11 @@ def spawn_enemies() -> None:
 
 
 def spawn_boss() -> None:
-    """Spawn the Cyber-Dragon on floor 100. Places it far from the player."""
     global boss_entity
     exclude = {(player_state["x"], player_state["y"]), (0, 0)}
     for c in chests:
         exclude.add((c["x"], c["y"]))
     candidates = get_spawn_candidates(exclude)
-    # Pick farthest floor tile from player spawn
     candidates.sort(key=lambda p: -(p[0] + p[1]))
     bx, by = candidates[0] if candidates else (GRID_SIZE // 2, GRID_SIZE // 2)
 
@@ -945,7 +930,6 @@ def spawn_boss() -> None:
 
 
 def spawn_secret_route() -> None:
-    """Place a key and locked door on maps 1-4."""
     global secret_key, secret_door, has_secret_key
     has_secret_key = False
     secret_key = {"x": -1, "y": -1, "active": False}
@@ -968,9 +952,7 @@ def spawn_secret_route() -> None:
     secret_door = {"x": door_pos[0], "y": door_pos[1], "open": False}
     game_map[door_pos[1]][door_pos[0]] = SECRET_DOOR
 
-# ---------------------------------------------------------------------------
-# Fog of war
-# ---------------------------------------------------------------------------
+
 def init_fog() -> None:
     global fog_matrix
     fog_matrix = [[FOG_UNEXPLORED] * GRID_SIZE for _ in range(GRID_SIZE)]
@@ -1013,18 +995,15 @@ def get_visible_merchant() -> dict:
 
 
 def is_at_merchant() -> bool:
-    return (player_state["x"] == merchant_state["x"]
-            and player_state["y"] == merchant_state["y"])
+    return (player_state["x"] == merchant_state["x"] and player_state["y"] == merchant_state["y"])
 
 
 def is_at_stairs() -> bool:
-    return (player_state["x"] == stairs_pos["x"]
-            and player_state["y"] == stairs_pos["y"])
+    return (player_state["x"] == stairs_pos["x"] and player_state["y"] == stairs_pos["y"])
 
 
 def is_at_secret_door() -> bool:
-    return (player_state["x"] == secret_door["x"]
-            and player_state["y"] == secret_door["y"])
+    return (player_state["x"] == secret_door["x"] and player_state["y"] == secret_door["y"])
 
 
 def collect_secret_key(logs: list) -> None:
@@ -1060,9 +1039,7 @@ def enter_secret_map(logs: list) -> None:
         logs.append({"type": "quest", "message": f"🚪 Gizli geçitten geçtin! Harita {secret_map_index}/5"})
     update_fog(0, 0)
 
-# ---------------------------------------------------------------------------
-# Quest
-# ---------------------------------------------------------------------------
+
 def init_daily_quest(exclude_name: Optional[str] = None) -> None:
     global daily_quest
     candidates = [tmpl for tmpl in QUEST_TEMPLATES if tmpl["name"] != exclude_name]
@@ -1085,11 +1062,9 @@ def try_complete_quest(logs: list) -> bool:
     reward = daily_quest["reward"]
     daily_quest["completed"] = True
     player_state["gold"] += reward
-    logs.append({"type": "quest",
-                 "message": f"Görev tamamlandı: {completed_name}! +{reward} Altın"})
+    logs.append({"type": "quest", "message": f"Görev tamamlandı: {completed_name}! +{reward} Altın"})
     init_daily_quest(exclude_name=completed_name)
-    logs.append({"type": "quest",
-                 "message": f"Yeni görev: {daily_quest['name']}"})
+    logs.append({"type": "quest", "message": f"Yeni görev: {daily_quest['name']}"})
     return True
 
 
@@ -1103,8 +1078,7 @@ def on_enemy_killed(logs: list) -> None:
 def on_gold_collected(amount: int, logs: list) -> None:
     if daily_quest.get("completed"): return
     if daily_quest.get("type") == "collect_gold":
-        daily_quest["progress"] = min(daily_quest["target"],
-                                      daily_quest["progress"] + amount)
+        daily_quest["progress"] = min(daily_quest["target"], daily_quest["progress"] + amount)
         try_complete_quest(logs)
 
 
@@ -1122,11 +1096,7 @@ def on_floor_reached(logs: list) -> None:
         try_complete_quest(logs)
 
 
-# ---------------------------------------------------------------------------
-# Equipment / Inventory helpers
-# ---------------------------------------------------------------------------
 def recalc_stats() -> None:
-    """Recompute attack_power and damage_reduction from base class + equipped items."""
     cls = player_state["character_class"]
     if not cls:
         return
@@ -1137,7 +1107,6 @@ def recalc_stats() -> None:
         if slot_item:
             atk += slot_item.get("atk", 0)
             dfn += slot_item.get("def", 0)
-    # Add level bonus
     atk += (player_state["level"] - 1) * 2 + player_state["level_attack_bonus"]
     player_state["attack_power"] = atk
     player_state["damage_reduction"] = dfn + player_state["level_defense_bonus"]
@@ -1146,11 +1115,9 @@ def recalc_stats() -> None:
 def roll_item_drop() -> Optional[dict]:
     if random.random() > ITEM_DROP_CHANCE:
         return None
-    # Pick rarity
     keys = list(RARITY_DROP_WEIGHTS.keys())
     weights = [RARITY_DROP_WEIGHTS[k] for k in keys]
     rarity = random.choices(keys, weights=weights, k=1)[0]
-    # Pick slot
     slot = random.choice(["weapon", "armor", "accessory"])
     pool = [i for i in ITEM_POOL[slot] if i["rarity"] == rarity]
     if not pool:
@@ -1165,9 +1132,6 @@ def add_to_inventory(item: dict) -> bool:
     return True
 
 
-# ---------------------------------------------------------------------------
-# Floor progression
-# ---------------------------------------------------------------------------
 def descend_floor(logs: list) -> None:
     global current_floor, game_map, next_enemy_id, boss_entity
     current_floor += 1
@@ -1186,21 +1150,16 @@ def descend_floor(logs: list) -> None:
     spawn_secret_route()
     spawn_enemies()
 
-    # Floor 100: spawn the boss instead of regular enemies
     if current_floor >= BOSS_FLOOR:
         spawn_boss()
-        logs.append({"type": "combat",
-                     "message": f"⚠️ KAT {current_floor} — CYBER-DRAGON UYANDIN! Son savaş başlıyor!"})
+        logs.append({"type": "combat", "message": f"⚠️ KAT {current_floor} — CYBER-DRAGON UYANDI! Son savaş başlıyor!"})
     else:
-        logs.append({"type": "exp",
-                     "message": f"🔽 Kat {current_floor}/{MAX_FLOOR}'e indin! +{heal} HP iyileşti."})
+        logs.append({"type": "exp", "message": f"🔽 Kat {current_floor}/{MAX_FLOOR}'e indin! +{heal} HP iyileşti."})
 
     on_floor_reached(logs)
     update_fog(0, 0)
 
-# ---------------------------------------------------------------------------
-# Core game logic
-# ---------------------------------------------------------------------------
+
 def init_game_with_class(cls: str) -> None:
     global game_map, game_over, game_won, boss_entity, next_enemy_id, character_class
     global class_selected, current_floor, equipment, inventory, secret_map_index, pending_level_ups
@@ -1283,21 +1242,17 @@ def apply_enemy_kill_rewards(enemy: dict, logs: list) -> dict:
     player_state["stats"]["total_gold_earned"] += gold_gain
     apply_exp(exp_gain)
     enemies[:] = [e for e in enemies if e["id"] != enemy["id"]]
-    logs.append({"type": "gold",
-                     "message": f"{enemy['name']} yenildi! +{gold_gain} GOLD +{exp_gain} EXP"})
+    logs.append({"type": "gold", "message": f"{enemy['name']} yenildi! +{gold_gain} GOLD +{exp_gain} EXP"})
     on_enemy_killed(logs)
     on_gold_collected(gold_gain, logs)
-    # Item drop
     dropped = roll_item_drop()
     if dropped:
         added = add_to_inventory(dropped)
         if added:
-            logs.append({"type": "item",
-                         "message": f"💎 Eşya düştü: {dropped['name']} ({dropped['rarity']})"})
+            logs.append({"type": "item", "message": f"💎 Eşya düştü: {dropped['name']} ({dropped['rarity']})"})
         else:
             logs.append({"type": "info", "message": "Envanter dolu! Eşya kayboldu."})
-    return {"gold_gained": gold_gain, "exp_gained": exp_gain,
-            "item_drop": dropped}
+    return {"gold_gained": gold_gain, "exp_gained": exp_gain, "item_drop": dropped}
 
 
 def calc_enemy_damage(enemy: dict) -> int:
@@ -1311,8 +1266,7 @@ def invisibility_active() -> bool:
 def resolve_combat(enemy: dict, logs: list) -> dict:
     atk = player_state["attack_power"]
     enemy["hp"] -= atk
-    logs.append({"type": "combat",
-                 "message": f"{enemy['name']}'e {atk} hasar vurdun!"})
+    logs.append({"type": "combat", "message": f"{enemy['name']}'e {atk} hasar vurdun!"})
     result = {
         "enemy_id": enemy["id"], "enemy_name": enemy["name"],
         "enemy_x": enemy["x"],   "enemy_y": enemy["y"],
@@ -1328,8 +1282,7 @@ def resolve_combat(enemy: dict, logs: list) -> dict:
     else:
         dmg = calc_enemy_damage(enemy)
         player_state["hp"] = max(0, player_state["hp"] - dmg)
-        logs.append({"type": "combat",
-                     "message": f"{enemy['name']} sana {dmg} hasar vurdu!"})
+        logs.append({"type": "combat", "message": f"{enemy['name']} sana {dmg} hasar vurdu!"})
         check_game_over()
     return result
 
@@ -1342,17 +1295,14 @@ def collect_chest(logs: list) -> None:
         player_state["gold"] += CHEST_GOLD
         player_state["stats"]["total_gold_earned"] += CHEST_GOLD
         apply_exp(CHEST_EXP)
-        logs.append({"type": "gold",
-                     "message": f"Hazine buldun! +{CHEST_GOLD} GOLD +{CHEST_EXP} EXP"})
+        logs.append({"type": "gold", "message": f"Hazine buldun! +{CHEST_GOLD} GOLD +{CHEST_EXP} EXP"})
         if daily_quest.get("type") == "collect_gold":
             on_gold_collected(CHEST_GOLD, logs)
         elif daily_quest.get("type") == "open_chests":
             on_chest_opened(logs)
         break
 
-# ---------------------------------------------------------------------------
-# Enemy AI — A* for visible enemies, random walk otherwise
-# ---------------------------------------------------------------------------
+
 def move_enemies(logs: list) -> list:
     battles = []
     if game_over:
@@ -1367,7 +1317,6 @@ def move_enemies(logs: list) -> list:
         if game_over:
             break
 
-        # Orc Bruiser moves every other turn
         if enemy.get("move_speed", 1) > 1:
             enemy["move_timer"] = enemy.get("move_timer", 0) + 1
             if enemy["move_timer"] % enemy["move_speed"] != 0:
@@ -1378,12 +1327,10 @@ def move_enemies(logs: list) -> list:
         dist = tile_distance(enemy["x"], enemy["y"], px, py)
         is_visible = is_tile_visible(enemy["x"], enemy["y"])
 
-        # Skeleton Archer — ranged attack
         if not invisible and enemy.get("range", 1) >= 3 and dist <= enemy["range"] and is_visible:
             dmg = calc_enemy_damage(enemy)
             player_state["hp"] = max(0, player_state["hp"] - dmg)
-            logs.append({"type": "combat",
-                         "message": f"🏹 {enemy['name']} sana {dmg} ok attı!"})
+            logs.append({"type": "combat", "message": f"🏹 {enemy['name']} sana {dmg} ok attı!"})
             check_game_over()
             battles.append({
                 "enemy_id": enemy["id"], "enemy_name": enemy["name"],
@@ -1393,12 +1340,9 @@ def move_enemies(logs: list) -> list:
             })
             continue
 
-        # Decide move target
         if not invisible and is_visible and dist <= 8:
-            # A* toward player
             step = astar((old_x, old_y), (px, py), occupied)
         else:
-            # Random walk
             dirs = list(DIR_DELTA.values())
             random.shuffle(dirs)
             step = None
@@ -1428,30 +1372,21 @@ def move_enemies(logs: list) -> list:
     return battles
 
 
-# ---------------------------------------------------------------------------
-# Boss AI — Cyber-Dragon
-# ---------------------------------------------------------------------------
 def move_boss(logs: list) -> list:
-    """Handle the Cyber-Dragon's turn: move toward player + AoE every N turns."""
     global boss_entity, game_won
     battles = []
-    if boss_entity is None or game_over:
-        return battles
-
-    if invisibility_active():
+    if boss_entity is None or game_over or invisibility_active():
         return battles
 
     px, py = player_state["x"], player_state["y"]
     boss_entity["aoe_timer"] = boss_entity.get("aoe_timer", 0) + 1
 
-    # Every BOSS_AOE_INTERVAL turns: Neon Flame AoE on 3x3 around player
     if boss_entity["aoe_timer"] >= BOSS_AOE_INTERVAL:
         boss_entity["aoe_timer"] = 0
         aoe_dmg = max(1, boss_entity["damage"] // 2 - player_state["damage_reduction"])
         player_state["hp"] = max(0, player_state["hp"] - aoe_dmg)
         check_game_over()
-        logs.append({"type": "combat",
-                     "message": f"🔥 Cyber-Dragon'un NEON ALEVI! {aoe_dmg} AoE hasar!"})
+        logs.append({"type": "combat", "message": f"🔥 Cyber-Dragon'un NEON ALEVI! {aoe_dmg} AoE hasar!"})
         battles.append({
             "enemy_id": 9999, "enemy_name": "Cyber-Dragon",
             "enemy_x": boss_entity["x"], "enemy_y": boss_entity["y"],
@@ -1461,7 +1396,6 @@ def move_boss(logs: list) -> list:
         })
         return battles
 
-    # Normal move toward player (A*)
     old_x, old_y = boss_entity["x"], boss_entity["y"]
     occupied = get_occupied_cells()
     dist = tile_distance(old_x, old_y, px, py)
@@ -1476,8 +1410,7 @@ def move_boss(logs: list) -> list:
         dmg = max(1, raw_dmg - player_state["damage_reduction"])
         player_state["hp"] = max(0, player_state["hp"] - dmg)
         check_game_over()
-        logs.append({"type": "combat",
-                     "message": f"Cyber-Dragon sana {dmg} hasar vurdu!"})
+        logs.append({"type": "combat", "message": f"Cyber-Dragon sana {dmg} hasar vurdu!"})
         battles.append({
             "enemy_id": 9999, "enemy_name": "Cyber-Dragon",
             "enemy_x": old_x, "enemy_y": old_y,
@@ -1491,12 +1424,10 @@ def move_boss(logs: list) -> list:
 
 
 def attack_boss(atk: int, logs: list) -> dict:
-    """Player attacks the boss. Returns result dict."""
     global boss_entity, game_won
     effective_atk = max(1, atk - boss_entity.get("defense", 0))
     boss_entity["hp"] -= effective_atk
-    logs.append({"type": "combat",
-                 "message": f"Cyber-Dragon'a {effective_atk} hasar vurdun! (HP: {max(0,boss_entity['hp'])}/{boss_entity['max_hp']})"})
+    logs.append({"type": "combat", "message": f"Cyber-Dragon'a {effective_atk} hasar vurdun! (HP: {max(0,boss_entity['hp'])}/{boss_entity['max_hp']})"})
     if boss_entity["hp"] <= 0:
         boss_entity["hp"] = 0
         game_won = True
@@ -1504,8 +1435,7 @@ def attack_boss(atk: int, logs: list) -> dict:
         player_state["stats"]["total_gold_earned"] += boss_entity["gold"]
         player_state["stats"]["games_won"] += 1
         apply_exp(boss_entity["exp"])
-        logs.append({"type": "quest",
-                     "message": "CYBER-DRAGON YENİLDİ! Zindan fethedildi! ZAFER!"})
+        logs.append({"type": "quest", "message": "CYBER-DRAGON YENİLDİ! Zindan fethedildi! ZAFER!"})
         return {"enemy_killed": True, "gold_gained": boss_entity["gold"],
                 "exp_gained": boss_entity["exp"], "game_won": True,
                 "enemy_id": 9999, "enemy_name": "Cyber-Dragon",
@@ -1516,9 +1446,7 @@ def attack_boss(atk: int, logs: list) -> dict:
             "enemy_x": boss_entity["x"], "enemy_y": boss_entity["y"],
             "damage_dealt": effective_atk}
 
-# ---------------------------------------------------------------------------
-# build_status — full state payload
-# ---------------------------------------------------------------------------
+
 def build_status() -> dict:
     base = {
         "class_selected": class_selected,
@@ -1589,9 +1517,6 @@ def build_status() -> dict:
     }
 
 
-# ---------------------------------------------------------------------------
-# FastAPI endpoints
-# ---------------------------------------------------------------------------
 def require_class_selected():
     if not class_selected:
         raise HTTPException(400, detail="Önce karakter sınıfı seçin")
@@ -1604,9 +1529,19 @@ async def on_startup():
     sync_registered_accounts_to_log()
     clear_runtime_state()
 
+
+@app.get("/")
+@app.get("/index.html")
+async def serve_index():
+    return FileResponse(BASE_DIR / "index.html")
+
 @app.get("/icon.svg")
-async def get_icon():
+async def serve_icon():
     return FileResponse(BASE_DIR / "icon.svg", media_type="image/svg+xml")
+
+@app.get("/icon.png")
+async def serve_icon_png():
+    return FileResponse(BASE_DIR / "icon.png")
 
 @app.get("/knight_sheet.png")
 async def get_knight_sheet():
@@ -1615,21 +1550,6 @@ async def get_knight_sheet():
 @app.get("/monters.png")
 async def get_monsters():
     return FileResponse(BASE_DIR / "monters.png")
-
-
-@app.get("/")
-@app.get("/index.html")
-async def serve_index():
-    return FileResponse(BASE_DIR / "index.html")
-
-@app.get("/icon.png")
-async def get_icon():
-    return FileResponse(BASE_DIR / "icon.png")
-
-
-@app.get("/icon.svg")
-async def serve_icon():
-    return FileResponse(BASE_DIR / "icon.svg", media_type="image/svg+xml")
 
 
 def get_username(user_id: Optional[int]) -> Optional[str]:
@@ -1641,7 +1561,7 @@ def get_username(user_id: Optional[int]) -> Optional[str]:
 
 
 @app.post("/api/auth/register")
-async def register(payload: AuthRequest, response: Response):
+async def register(payload: AuthRequest, request: Request, response: Response):
     created_at = datetime.now(timezone.utc).isoformat()
     try:
         with db_connect() as connection:
@@ -1658,25 +1578,41 @@ async def register(payload: AuthRequest, response: Response):
         raise HTTPException(409, detail="Bu kullanici adi zaten alinmis")
     record_auth_event(payload.username, "register", user_id)
     append_account_log("register", payload.username, created_at)
+    append_user_log("KAYIT", payload.username, request)
     load_game_state(user_id)
     token = create_session(user_id, response)
     return {**build_status(), "success": True, "message": "Hesap olusturuldu", "session_token": token}
 
 
 @app.post("/api/auth/login")
-async def login(payload: AuthRequest, response: Response):
+async def login(payload: AuthRequest, request: Request, response: Response):
     with db_connect() as connection:
         row = connection.execute("SELECT id, password_hash FROM users WHERE username = ?", (payload.username,)).fetchone()
     if not row or not verify_password(payload.password, row["password_hash"]):
         record_auth_event(payload.username, "login_failed", int(row["id"]) if row else None)
         append_account_log("login_failed", payload.username)
+        append_user_log("GIRIS_BASARISIZ", payload.username, request)
         raise HTTPException(401, detail="Kullanici adi veya parola hatali")
     user_id = int(row["id"])
     record_auth_event(payload.username, "login_success", user_id)
     append_account_log("login_success", payload.username)
+    append_user_log("GIRIS", payload.username, request)
     load_game_state(user_id)
     token = create_session(user_id, response)
     return {**build_status(), "success": True, "message": "Giris yapildi", "session_token": token}
+
+
+@app.post("/api/log-user")
+async def log_user_activity(payload: UserLogPayload, request: Request):
+    append_user_log(payload.action, payload.username, request)
+    return {"status": "success"}
+
+
+@app.get("/view-logs")
+async def view_logs():
+    if not USER_LOG_PATH.exists():
+        return PlainTextResponse("Henüz kaydedilmiş kullanıcı girişi veya kaydı bulunmuyor.")
+    return FileResponse(USER_LOG_PATH, media_type="text/plain; charset=utf-8")
 
 
 def require_admin_log_key(request: Request) -> None:
@@ -1761,6 +1697,7 @@ async def select_class(payload: SelectClassRequest):
     init_game_with_class(payload.character_class)
     return build_status()
 
+
 @app.post("/api/select-level-up")
 async def select_level_up(payload: LevelUpRequest):
     global pending_level_ups
@@ -1785,6 +1722,7 @@ async def select_level_up(payload: LevelUpRequest):
     pending_level_ups -= 1
     recalc_stats()
     return {**build_status(), "success": True, "reward": reward}
+
 
 @app.post("/api/move")
 async def move_player(payload: MoveRequest):
@@ -1814,12 +1752,10 @@ async def move_player(payload: MoveRequest):
         blocked = True
         logs.append({"type": "info", "message": "Gizli geçit kilitli. Anahtarı bulmalısın!"})
     else:
-        # Check if moving into boss
         if boss_entity and (new_x, new_y) == (boss_entity["x"], boss_entity["y"]):
             battle = attack_boss(player_state["attack_power"], logs)
             battles.append(battle)
             if not battle["enemy_killed"]:
-                # Boss counter-attacks immediately after being hit
                 battles += move_boss(logs)
         else:
             target_enemy = find_enemy_at(new_x, new_y)
@@ -1842,7 +1778,6 @@ async def move_player(payload: MoveRequest):
 
         update_fog(player_state["x"], player_state["y"])
 
-        # Check stairs
         if not game_over and not game_won and is_at_stairs():
             descend_floor(logs)
             floor_changed = True
@@ -1923,8 +1858,7 @@ async def cast_fireball(payload: FireballRequest):
     logs: list = []
     player_state["mp"] -= FIREBALL_COST
     enemy["hp"] -= FIREBALL_DAMAGE
-    logs.append({"type": "magic",
-                 "message": f"🔥 Alev Topu! {enemy['name']}'e {FIREBALL_DAMAGE} hasar (-{FIREBALL_COST} MP)"})
+    logs.append({"type": "magic", "message": f"🔥 Alev Topu! {enemy['name']}'e {FIREBALL_DAMAGE} hasar (-{FIREBALL_COST} MP)"})
 
     enemy_killed = enemy["hp"] <= 0
     item_drop = None
@@ -1947,15 +1881,13 @@ async def equip_item(payload: EquipRequest):
     if slot not in equipment:
         raise HTTPException(400, detail="Bu eşya donanılamaz")
 
-    # Unequip current item → back to inventory
     if equipment[slot]:
         inventory.append(equipment[slot])
 
     equipment[slot] = item
     inventory.pop(payload.item_index)
     recalc_stats()
-    return {**build_status(), "success": True,
-            "message": f"{item['name']} donanıldı! ({slot})"}
+    return {**build_status(), "success": True, "message": f"{item['name']} donanıldı! ({slot})"}
 
 
 @app.post("/api/unequip")
@@ -1970,8 +1902,7 @@ async def unequip_item(payload: UnequipRequest):
         raise HTTPException(400, detail="Envanter dolu")
     equipment[payload.slot] = None
     recalc_stats()
-    return {**build_status(), "success": True,
-            "message": f"{item['name']} çıkarıldı."}
+    return {**build_status(), "success": True, "message": f"{item['name']} çıkarıldı."}
 
 
 @app.post("/api/reset")
