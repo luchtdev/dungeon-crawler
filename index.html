@@ -26,6 +26,7 @@
       --neon-green: #39ff14; --neon-yellow: #ffe600;
       --neon-red: #ff2244; --neon-orange: #ff8800;
       --text-primary: #e2e8f0; --text-muted: #64748b;
+      --safe-top: env(safe-area-inset-top, 0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
     html, body {
@@ -87,7 +88,8 @@
       background: rgba(255,34,68,0.12); border: 1px solid rgba(255,34,68,0.35); }
     .class-error.visible { display: block; }
     .game-ui { display: flex; flex-direction: column; flex: 1; min-height: 0;
-      width: 100%; max-width: 430px; margin: 0 auto; overflow: hidden; }
+      width: 100%; max-width: 430px; margin: 0 auto; overflow: hidden;
+      padding-top: var(--safe-top); }
     .game-ui.hidden { display: none; }
     .hud-bar {
       flex-shrink: 0; display: flex; align-items: stretch; justify-content: space-between;
@@ -494,7 +496,7 @@
         gap: 12px;
         width: min(100%, 1400px);
         max-width: 1400px;
-        padding: 16px;
+        padding: calc(16px + var(--safe-top)) 16px 16px;
         overflow: hidden;
       }
       .hud-topline, .hud-bar, .hud-panels { grid-column: 1 / -1; }
