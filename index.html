@@ -830,13 +830,13 @@
     }
     .minimap-panel.is-expanded {
       position: absolute;
-      left: 50%;
-      top: 50%;
-      right: auto;
-      bottom: auto;
+      right: 0;
+      bottom: calc(100% + 12px);
+      left: auto;
+      top: auto;
       width: clamp(180px, 28vw, 220px);
       height: clamp(180px, 28vw, 220px);
-      transform: translate(-50%, -50%);
+      transform: none;
       padding: 10px;
       background: rgba(10, 24, 29, 0.95);
       border: 1px solid rgba(114,241,184,0.3);

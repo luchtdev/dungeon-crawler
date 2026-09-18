@@ -13,3 +13,4 @@ KAYIT | tarih=2026-09-17T20:51:29.092013+00:00 | kullanici=sessfixuser
 KAYIT | tarih=2026-09-17T20:53:45.813792+00:00 | kullanici=uiuser1789678425810
 KAYIT | tarih=2026-09-17T20:53:58.592460+00:00 | kullanici=verifymove1789678438589
 KAYIT | tarih=2026-09-17T20:54:12.564145+00:00 | kullanici=verifyMove1789678452358
+GIRIS_BASARILI | tarih=2026-09-18T21:49:58.104623+00:00 | kullanici=admin
