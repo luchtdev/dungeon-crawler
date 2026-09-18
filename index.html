@@ -380,6 +380,7 @@
     .inv-item .inv-equip-btn { flex-shrink: 0; padding: 3px 8px; font-size: 0.55rem; font-weight: 700;
       border-radius: 5px; border: none; cursor: pointer;
       background: rgba(0,240,255,0.15); color: var(--neon-cyan); letter-spacing: 0.06em; }
+    .inv-item .inv-use-btn { background: rgba(57,255,20,0.15); color: var(--neon-green); }
     .inv-empty { color: var(--text-muted); font-size: 0.68rem; text-align: center; padding: 10px; }
     .achievement-list { display: flex; flex-direction: column; gap: 5px; }
     .achievement-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; background: rgba(0,0,0,0.22); }
@@ -1844,17 +1845,22 @@
       inventoryItems.forEach(function(item, idx) {
         var row = document.createElement('div');
         row.className = 'inv-item';
-        var slotIcon = item.slot === 'weapon' ? 'WPN' : item.slot === 'armor' ? 'ARM' : 'RING';
+        var consumable = item.type === 'consumable';
+        var slotIcon = consumable ? 'POT' : item.slot === 'weapon' ? 'WPN' : item.slot === 'armor' ? 'ARM' : 'RING';
         var statsStr = (item.atk ? '+'+item.atk+' ATK ' : '') + (item.def ? '+'+item.def+' DEF' : '');
         row.innerHTML =
           '<span class="inv-icon">'+slotIcon+'</span>'+
           '<span class="inv-name rarity-'+item.rarity+'">'+item.name+'</span>'+
           '<span class="inv-stats">'+statsStr+'</span>'+
-          '<button class="inv-equip-btn" data-idx="'+idx+'">Kusan</button>';
+          (consumable ? '<button class="inv-equip-btn inv-use-btn" data-idx="'+idx+'">Kullan</button>' : '<button class="inv-equip-btn" data-idx="'+idx+'">Kusan</button>');
         grid.appendChild(row);
       });
       grid.querySelectorAll('.inv-equip-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() { equipItem(parseInt(btn.dataset.idx)); });
+        btn.addEventListener('click', function() {
+          var idx = parseInt(btn.dataset.idx);
+          if (btn.classList.contains('inv-use-btn')) useItem(idx);
+          else equipItem(idx);
+        });
       });
     }
 
@@ -2933,6 +2939,16 @@
         if (!res.ok) { addLog(data.detail||'Donanilamadi','info'); return; }
         applyState(data); processLogs([{type:'item',message:data.message}]);
       } catch(e) { addLog('Ekipman hatasi!','info'); }
+    }
+
+    async function useItem(idx) {
+      try {
+        var res = await fetch(apiUrl('/api/use-item'), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({item_index:idx}) });
+        var data = await res.json().catch(function(){return{};});
+        if (!res.ok) { addLog(data.detail||'Esya kullanilamadi','info'); return; }
+        playActionSound('magic');
+        applyState(data); processLogs(data.logs || [{type:'magic',message:data.message}]);
+      } catch(e) { addLog('Esya kullanma hatasi!','info'); }
     }
 
     async function unequipSlot(slot) {

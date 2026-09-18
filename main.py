@@ -577,6 +577,9 @@ class SelectClassRequest(BaseModel):
 class EquipRequest(BaseModel):
     item_index: int
 
+class UseItemRequest(BaseModel):
+    item_index: int
+
 class UnequipRequest(BaseModel):
     slot: str
 
@@ -1815,6 +1818,8 @@ async def buy_item(payload: BuyItemRequest):
     cost = SHOP_ITEMS[payload.item]["cost"]
     if player_state["gold"] < cost:
         raise HTTPException(400, detail="Yetersiz altın")
+    if payload.item == "invisibility_potion" and len(inventory) >= MAX_INVENTORY:
+        raise HTTPException(400, detail="Envanter dolu")
 
     player_state["gold"] -= cost
     message = ""
@@ -1833,8 +1838,12 @@ async def buy_item(payload: BuyItemRequest):
         player_state["damage_reduction"] += 3
         message = f"Zırh güçlendi! DEF: -{player_state['damage_reduction']}"
     elif payload.item == "invisibility_potion":
-        player_state["invisible_until"] = datetime.now(timezone.utc).timestamp() + INVISIBILITY_DURATION
-        message = f"Görünmezlik İksiri! {INVISIBILITY_DURATION} saniye görünmezsin."
+        inventory.append({
+            "id": "invisibility_potion",
+            "name": SHOP_ITEMS[payload.item]["label"],
+            "type": "consumable",
+        })
+        message = "Görünmezlik İksiri envantere eklendi."
 
     return {**build_status(), "success": True, "message": message,
             "logs": [{"type": "gold", "message": message}]}
@@ -1888,6 +1897,26 @@ async def equip_item(payload: EquipRequest):
     inventory.pop(payload.item_index)
     recalc_stats()
     return {**build_status(), "success": True, "message": f"{item['name']} donanıldı! ({slot})"}
+
+
+@app.post("/api/use-item")
+async def use_item(payload: UseItemRequest):
+    require_class_selected()
+    require_level_choice()
+    if game_over or game_won:
+        raise HTTPException(400, detail="Oyun aktif değil")
+    if payload.item_index < 0 or payload.item_index >= len(inventory):
+        raise HTTPException(400, detail="Geçersiz envanter indeksi")
+
+    item = inventory[payload.item_index]
+    if item.get("id") != "invisibility_potion":
+        raise HTTPException(400, detail="Bu eşya kullanılamaz")
+
+    inventory.pop(payload.item_index)
+    player_state["invisible_until"] = datetime.now(timezone.utc).timestamp() + INVISIBILITY_DURATION
+    message = f"Görünmezlik İksiri kullanıldı! {INVISIBILITY_DURATION} saniye görünmezsin."
+    return {**build_status(), "success": True, "message": message,
+            "logs": [{"type": "magic", "message": message}]}
 
 
 @app.post("/api/unequip")
