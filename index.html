@@ -1653,6 +1653,7 @@
     let soundEnabled = true;
     let audioCtx = null;
     let player = { x:0, y:0 };
+    let cameraState = null;
     let cellSize = 20;
     let gameOver = false, gameWon = false, isMoving = false, pendingLevelUps = 0;
     let queuedMove = null;
@@ -2014,10 +2015,26 @@
     // ── Canvas helpers ────────────────────────────────────────────────────────
     function getCamera() {
       var half = Math.floor(VIEW_SIZE/2);
-      return {
-        x: Math.max(0, Math.min(player.x - half, gridSize - VIEW_SIZE)),
-        y: Math.max(0, Math.min(player.y - half, gridSize - VIEW_SIZE)),
-      };
+      var maxCamera = Math.max(0, gridSize - VIEW_SIZE);
+      if (!cameraState) {
+        cameraState = {
+          x: Math.max(0, Math.min(player.x - half, maxCamera)),
+          y: Math.max(0, Math.min(player.y - half, maxCamera)),
+        };
+      }
+
+      // Keep the world still while the player walks; pan only near the viewport edge.
+      var margin = Math.max(2, Math.floor(VIEW_SIZE * 0.2));
+      var minX = cameraState.x + margin;
+      var maxX = cameraState.x + VIEW_SIZE - 1 - margin;
+      var minY = cameraState.y + margin;
+      var maxY = cameraState.y + VIEW_SIZE - 1 - margin;
+      if (player.x < minX) cameraState.x = Math.max(0, player.x - margin);
+      if (player.x > maxX) cameraState.x = Math.min(maxCamera, player.x - VIEW_SIZE + 1 + margin);
+      if (player.y < minY) cameraState.y = Math.max(0, player.y - margin);
+      if (player.y > maxY) cameraState.y = Math.min(maxCamera, player.y - VIEW_SIZE + 1 + margin);
+
+      return { x: cameraState.x, y: cameraState.y };
     }
     function wts(wx, wy, cam) { return { x:(wx-cam.x)*cellSize, y:(wy-cam.y)*cellSize }; }
     function inViewport(wx, wy, cam) {
