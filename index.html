@@ -449,6 +449,29 @@
       opacity: 0; transition: opacity 0.4s, transform 0.4s; pointer-events: none; }
     .floor-notif.boss { border-color: #ff6600; color: #ff8800; box-shadow: 0 0 30px rgba(255,100,0,0.6); }
     .floor-notif.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .minimap-message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      z-index: 950;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate(-50%, -50%);
+      padding: 12px 18px;
+      border: 2px solid #f0c36a;
+      background: rgba(18, 14, 18, 0.96);
+      color: #ffd166;
+      box-shadow: 4px 4px 0 #0a0809, 0 0 24px rgba(240,195,106,0.35);
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(0.62rem, 3vw, 0.9rem);
+      text-align: center;
+      white-space: nowrap;
+    }
+    .minimap-message.show { animation: minimapMessageFly 6.8s ease-out forwards; }
+    @keyframes minimapMessageFly {
+      0%, 88% { opacity: 1; transform: translate(-50%, -50%); }
+      100% { opacity: 0; transform: translate(-50%, calc(-50% - 120px)); }
+    }
     /* Pixel dungeon skin */
     :root {
       --bg-dark: #120e12; --bg-panel: #21171b;
@@ -1617,13 +1640,27 @@
     const floorNotif = document.getElementById('floorNotif');
     const canvasFrame = document.getElementById('canvasFrame');
     const minimapPanel = document.querySelector('.minimap-panel');
+    const minimapMessage = document.createElement('div');
+    minimapMessage.className = 'minimap-message';
+    minimapMessage.textContent = 'Umarım beğenmişsindir Merve';
+    document.body.appendChild(minimapMessage);
 
     let minimapExpanded = false;
     let minimapLastToggleAt = 0;
+    function showMinimapMessage() {
+      minimapMessage.classList.remove('show');
+      void minimapMessage.offsetWidth;
+      minimapMessage.classList.add('show');
+    }
+    function hideMinimapMessage() {
+      minimapMessage.classList.remove('show');
+    }
     function toggleMinimapSize() {
       minimapExpanded = !minimapExpanded;
       minimapPanel.classList.toggle('is-expanded', minimapExpanded);
       minimapPanel.setAttribute('aria-expanded', String(minimapExpanded));
+      if (minimapExpanded) showMinimapMessage();
+      else hideMinimapMessage();
     }
     function activateMinimap(event) {
       var now = Date.now();
