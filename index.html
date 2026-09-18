@@ -819,6 +819,9 @@
       pointer-events: auto;
       transition: transform 0.2s ease, width 0.2s ease, height 0.2s ease, left 0.2s ease, top 0.2s ease, right 0.2s ease, bottom 0.2s ease;
     }
+    .controls-section:has(.minimap-panel.is-expanded) {
+      min-height: clamp(200px, 28vw, 240px);
+    }
     .canvas-frame {
       aspect-ratio: 1 / 1;
       box-sizing: border-box;
@@ -830,9 +833,9 @@
     }
     .minimap-panel.is-expanded {
       position: absolute;
-      right: 0;
-      bottom: calc(100% + 12px);
-      left: auto;
+      left: 0;
+      bottom: 0;
+      right: auto;
       top: auto;
       width: clamp(180px, 28vw, 220px);
       height: clamp(180px, 28vw, 220px);
