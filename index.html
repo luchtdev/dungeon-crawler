@@ -312,7 +312,9 @@
     .status-overlay, .shop-overlay, .game-over-overlay, .victory-overlay, .level-up-overlay {
       display: none; position: fixed; inset: 0; z-index: 900;
       background: rgba(6,8,15,0.92); backdrop-filter: blur(10px);
-      align-items: flex-start; justify-content: center; padding: 12px; overflow-y: auto; }
+      align-items: flex-start; justify-content: center;
+      padding: calc(12px + var(--safe-top)) 12px calc(12px + var(--safe-bottom));
+      overflow-y: auto; }
     .status-overlay.active, .shop-overlay.active, .game-over-overlay.active, .victory-overlay.active, .level-up-overlay.active { display: flex; }
     .modal-panel { width: 100%; max-width: 380px; margin-top: 8px;
       background: var(--bg-panel); border-radius: 12px; padding: 16px; position: relative; }
@@ -1102,7 +1104,9 @@
     }
     .shop-overlay .shop-buy-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.1); }
     @media (max-width: 430px) {
-      .status-overlay, .shop-overlay { padding: 8px; }
+      .status-overlay, .shop-overlay {
+        padding: calc(8px + var(--safe-top)) 8px calc(8px + var(--safe-bottom));
+      }
       .status-overlay .modal-panel, .shop-overlay .modal-panel { padding: 14px; }
       .status-overlay .equip-grid { gap: 5px; }
       .status-overlay .equip-slot { padding: 7px 3px; }
