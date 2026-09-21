@@ -200,11 +200,21 @@
       background: rgba(0,0,0,0.4); image-rendering: pixelated; flex-shrink: 0;
     }
     .canvas-frame.shake { animation: screenShake 0.25s ease; }
+    .canvas-frame.dizzy-effect {
+      animation: poisonDizzy 3.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    }
     @keyframes screenShake {
       0% { transform: translate(0,0); } 15% { transform: translate(-4px,-3px); }
       30% { transform: translate(4px,3px); } 50% { transform: translate(-3px,4px); }
       70% { transform: translate(3px,-2px); } 90% { transform: translate(-2px,2px); }
       100% { transform: translate(0,0); } }
+    @keyframes poisonDizzy {
+      0% { transform: scale(1); filter: none; }
+      15% { transform: scale(1.18) rotate(2.5deg); filter: hue-rotate(85deg) saturate(2.5); }
+      40% { transform: scale(1.12) rotate(-2deg); filter: hue-rotate(110deg) saturate(2.8); }
+      70% { transform: scale(1.06) rotate(1deg); filter: hue-rotate(50deg) saturate(1.6); }
+      100% { transform: scale(1) rotate(0deg); filter: none; }
+    }
     .log-section { position: relative; z-index: 1; flex-shrink: 0; align-self: center; width: calc(100% - 24px); max-width: 600px; margin: 0 auto 10px;
       border: 3px solid var(--panel-border); background: var(--bg-panel); overflow: hidden; box-shadow: 0 0 15px rgba(255, 0, 85, 0.3); }
     .log-header { padding: 4px 10px; font-size: 0.55rem; font-weight: 700;
@@ -401,6 +411,15 @@
     .shop-item { display: flex; align-items: center; justify-content: space-between; gap: 8px;
       padding: 10px; margin-bottom: 8px; background: rgba(0,0,0,0.3);
       border: 1px solid rgba(57,255,20,0.2); border-radius: 8px; }
+    .shop-item-info { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .shop-item-symbol { flex: 0 0 26px; font-size: 1.25rem; line-height: 1; text-align: center;
+      filter: drop-shadow(0 0 5px currentColor); }
+    .shop-symbol-health { color: #ff4d6d; }
+    .shop-symbol-mana { color: #55b9ff; }
+    .shop-symbol-invisibility { color: #c58cff; }
+    .shop-symbol-sword { color: #ffd166; }
+    .shop-symbol-bless { color: #fff176; }
+    .shop-symbol-armor { color: #6fffe9; }
     .shop-item-name { font-size: 0.78rem; font-weight: 600; }
     .shop-item-desc { font-size: 0.62rem; color: var(--text-muted); margin-top: 2px; }
     .shop-buy-btn { flex-shrink: 0; padding: 8px 12px; font-size: 0.62rem; font-weight: 700;
@@ -1302,23 +1321,27 @@
         <span class="detail-value" id="shopGold" style="color:var(--neon-yellow)">0</span>
       </div>
       <div class="shop-item">
-        <div><div class="shop-item-name">Can Iksiri</div><div class="shop-item-desc">+30 HP - 20 Altin</div></div>
+        <div class="shop-item-info"><span class="shop-item-symbol shop-symbol-health" aria-hidden="true">❤️</span><div><div class="shop-item-name">Can Iksiri</div><div class="shop-item-desc">+30 HP - 20 Altin</div></div></div>
         <button type="button" class="shop-buy-btn" data-item="potion">Al</button>
       </div>
       <div class="shop-item">
-        <div><div class="shop-item-name">Mana Iksiri</div><div class="shop-item-desc">+40 MP - 30 Altin</div></div>
+        <div class="shop-item-info"><span class="shop-item-symbol shop-symbol-mana" aria-hidden="true">💧</span><div><div class="shop-item-name">Mana Iksiri</div><div class="shop-item-desc">+40 MP - 30 Altin</div></div></div>
         <button type="button" class="shop-buy-btn" data-item="mana_potion">Al</button>
       </div>
       <div class="shop-item">
-        <div><div class="shop-item-name">Gorunmezlik Iksiri</div><div class="shop-item-desc">15 saniye gorunmezlik - 400 Altin</div></div>
+        <div class="shop-item-info"><span class="shop-item-symbol shop-symbol-invisibility" aria-hidden="true">👻</span><div><div class="shop-item-name">Gorunmezlik Iksiri</div><div class="shop-item-desc">15 saniye gorunmezlik - 400 Altin</div></div></div>
         <button type="button" class="shop-buy-btn" data-item="invisibility_potion">Al</button>
       </div>
       <div class="shop-item">
-        <div><div class="shop-item-name">Kilic+</div><div class="shop-item-desc">+5 ATK - 100 Altin</div></div>
+        <div class="shop-item-info"><span class="shop-item-symbol shop-symbol-sword" aria-hidden="true">⚔️</span><div><div class="shop-item-name">Kilic+</div><div class="shop-item-desc">+5 ATK - 100 Altin</div></div></div>
         <button type="button" class="shop-buy-btn" data-item="sword_upgrade">Al</button>
       </div>
       <div class="shop-item">
-        <div><div class="shop-item-name">Zirh+</div><div class="shop-item-desc">-3 hasar - 150 Altin</div></div>
+        <div class="shop-item-info"><span class="shop-item-symbol shop-symbol-bless" aria-hidden="true">✨</span><div><div class="shop-item-name">Bless Kilic</div><div class="shop-item-desc">+500 ATK - 500 Altin</div></div></div>
+        <button type="button" class="shop-buy-btn" data-item="bless_sword">Al</button>
+      </div>
+      <div class="shop-item">
+        <div class="shop-item-info"><span class="shop-item-symbol shop-symbol-armor" aria-hidden="true">🛡️</span><div><div class="shop-item-name">Zirh+</div><div class="shop-item-desc">-3 hasar - 150 Altin</div></div></div>
         <button type="button" class="shop-buy-btn" data-item="armor_upgrade">Al</button>
       </div>
     </div>
@@ -1471,6 +1494,25 @@
             '...gg...'
           ],
           palette: { 'g': '#3faa3f', 'G': '#44bb44', 'N': '#ffcc00' }
+        },
+        'Poison Zombie': {
+          size: 10,
+          matrix: [
+            '..ZZZZ....',
+            '.ZZzZZ....',
+            '.ZYZYZ....',
+            '.ZZZZZ....',
+            '..CCCC..T.',
+            '.ZCCCCZ.G.',
+            '.ZCCCCZPPP',
+            '..CCCC.PPP',
+            '..C..C..G.',
+            '..Z..Z....'
+          ],
+          palette: {
+            'Z': '#2e6b2c', 'z': '#4ea847', 'Y': '#b4ff00',
+            'C': '#1c242b', 'T': '#8d5534', 'G': '#7ee7ff', 'P': '#00ff55'
+          }
         },
         'Cyber-Dragon': {
           size: 10,
@@ -1649,7 +1691,7 @@
     }
 
     // State
-    let map = [], fogMatrix = [], enemies = [], chests = [];
+    let map = [], fogMatrix = [], enemies = [], chests = [], gravestones = [];
     let merchant = { x:0, y:0, visible:false };
     let stairs = { x:-1, y:-1 };
     let secretKey = { x:-1, y:-1, active:false };
@@ -1677,6 +1719,8 @@
     let inventoryItems = [];
     let equipment = { weapon:null, armor:null, accessory:null };
     let floatTexts = [];
+    let particles = [];
+    let lastParticleFrame = 0;
     let aoeEffect = null; // { cx, cy, radius, life, born }
 
     const keysHeld = new Set();
@@ -1767,6 +1811,43 @@
     // ── Float texts ──────────────────────────────────────────────────────────
     function spawnFloat(wx, wy, text, color) {
       floatTexts.push({ wx:wx, wy:wy, text:text, color:color, born:performance.now() });
+    }
+
+    function particleOrigin(tileX, tileY) {
+      return { wx:tileX * cellSize + cellSize / 2, wy:tileY * cellSize + cellSize / 2 };
+    }
+
+    function addParticle(wx, wy, vx, vy, color, size, life) {
+      particles.push({ wx:wx, wy:wy, vx:vx, vy:vy, color:color, size:size, life:life, maxLife:life });
+    }
+
+    function spawnHitParticles(wx, wy, color) {
+      var count = 8 + Math.floor(Math.random() * 5);
+      color = color || '#ff0055';
+      for (var i = 0; i < count; i++) {
+        var angle = Math.random() * Math.PI * 2;
+        var speed = 45 + Math.random() * 100;
+        addParticle(wx, wy, Math.cos(angle) * speed, Math.sin(angle) * speed,
+          color, 2 + Math.random() * 2, 260 + Math.random() * 220);
+      }
+    }
+
+    function spawnGoldParticles(wx, wy) {
+      var count = 6 + Math.floor(Math.random() * 3);
+      for (var i = 0; i < count; i++) {
+        addParticle(wx, wy, (Math.random() - 0.5) * 45, -55 - Math.random() * 65,
+          '#ffcc00', 2 + Math.random() * 2, 450 + Math.random() * 250);
+      }
+    }
+
+    function spawnLevelUpParticles(wx, wy) {
+      var count = 15 + Math.floor(Math.random() * 6);
+      for (var i = 0; i < count; i++) {
+        addParticle(wx + (Math.random() - 0.5) * cellSize * 0.8, wy,
+          (Math.random() - 0.5) * 35, -90 - Math.random() * 100,
+          Math.random() < 0.5 ? '#00ffcc' : '#39ff14', 2 + Math.random() * 2,
+          550 + Math.random() * 350);
+      }
     }
 
     // ── UI Updates ───────────────────────────────────────────────────────────
@@ -2000,6 +2081,7 @@
       });
       enemies = newEnemies;
       chests = data.chests || [];
+      gravestones = data.gravestones || [];
       if (data.merchant) merchant = data.merchant;
       if (data.stairs) stairs = data.stairs;
       if (data.secret_key) secretKey = data.secret_key;
@@ -2183,6 +2265,28 @@
       }
     }
 
+    function drawGravestone(sx, sy) {
+      var px = sx * cellSize, py = sy * cellSize;
+      var pad = Math.max(2, cellSize * 0.16);
+      var width = cellSize - pad * 2;
+      var top = py + cellSize * 0.18;
+      var height = cellSize * 0.68;
+      ctx.save();
+      ctx.shadowColor = 'rgba(170,130,255,0.32)';
+      ctx.shadowBlur = Math.max(2, cellSize * 0.24);
+      ctx.fillStyle = '#646b7a';
+      ctx.fillRect(px + pad, top + cellSize * 0.12, width, height - cellSize * 0.12);
+      ctx.fillStyle = '#8992a3';
+      ctx.fillRect(px + pad + cellSize * 0.1, top, width - cellSize * 0.2, cellSize * 0.18);
+      ctx.fillStyle = '#b4c7d8';
+      ctx.fillRect(px + cellSize * 0.45, top + cellSize * 0.16, Math.max(2, cellSize * 0.1), cellSize * 0.28);
+      ctx.fillRect(px + cellSize * 0.36, top + cellSize * 0.25, cellSize * 0.28, Math.max(2, cellSize * 0.1));
+      ctx.fillStyle = '#3d4350';
+      ctx.fillRect(px + cellSize * 0.3, top + cellSize * 0.55, Math.max(2, cellSize * 0.08), cellSize * 0.16);
+      ctx.fillRect(px + cellSize * 0.3, top + cellSize * 0.65, cellSize * 0.2, Math.max(2, cellSize * 0.06));
+      ctx.restore();
+    }
+
     function drawMerchant(sx, sy) {
       var px = sx*cellSize, py = sy*cellSize, pad = cellSize*0.12, s = cellSize-pad*2;
       ctx.fillStyle = COLORS.merchantBg;
@@ -2256,8 +2360,12 @@
 
     function drawEnemy(sx, sy, e) {
       var px = sx, py = sy;
-      var spriteKey = e.name === 'Orc Bruiser' ? 'Orc Bruiser' : (e.name === 'Skeleton Archer' ? 'Skeleton Archer' : 'Goblin');
-      var glow = e.name === 'Orc Bruiser' ? 'rgba(68,187,68,0.25)' : e.name === 'Skeleton Archer' ? 'rgba(255,204,102,0.2)' : 'rgba(255,34,68,0.24)';
+      var spriteKey = e.name === 'Poison Zombie' ? 'Poison Zombie' :
+        (e.name === 'Orc Bruiser' ? 'Orc Bruiser' :
+        (e.name === 'Skeleton Archer' ? 'Skeleton Archer' : 'Goblin'));
+      var glow = e.name === 'Poison Zombie' ? 'rgba(0, 255, 85, 0.35)' :
+        (e.name === 'Orc Bruiser' ? 'rgba(68,187,68,0.25)' :
+        (e.name === 'Skeleton Archer' ? 'rgba(255,204,102,0.2)' : 'rgba(255,34,68,0.24)'));
       var parts = {
         'Goblin': { x: 0, width: 220 },
         'Skeleton Archer': { x: 210, width: 225 },
@@ -2513,6 +2621,28 @@
       });
     }
 
+    function drawParticles(now, cam) {
+      var delta = lastParticleFrame ? Math.min(32, now - lastParticleFrame) : 16;
+      lastParticleFrame = now;
+      particles = particles.filter(function(particle) {
+        particle.life -= delta;
+        if (particle.life <= 0) return false;
+        particle.wx += particle.vx * delta / 1000;
+        particle.wy += particle.vy * delta / 1000;
+        var screenX = particle.wx - cam.x * cellSize;
+        var screenY = particle.wy - cam.y * cellSize;
+        if (screenX < -particle.size || screenY < -particle.size ||
+            screenX > canvas.width || screenY > canvas.height) return true;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, particle.life / particle.maxLife);
+        ctx.fillStyle = particle.color;
+        ctx.fillRect(Math.floor(screenX - particle.size / 2), Math.floor(screenY - particle.size / 2),
+          Math.ceil(particle.size), Math.ceil(particle.size));
+        ctx.restore();
+        return true;
+      });
+    }
+
     function drawAoeEffect(now) {
       if (!aoeEffect || now - aoeEffect.born > 400) {
         aoeEffect = null;
@@ -2550,6 +2680,10 @@
       if (secretDoor && secretDoor.x >= 0 && secretDoor.y >= 0) drawMinimapSecretDoor(secretDoor.x * cell, secretDoor.y * cell, cell, !!secretDoor.open);
       if (merchant && merchant.x >= 0 && merchant.y >= 0) drawMinimapMerchant(merchant.x * cell, merchant.y * cell, cell);
       if (secretKey && secretKey.active && secretKey.x >= 0 && secretKey.y >= 0) drawMinimapKey(secretKey.x * cell, secretKey.y * cell, cell);
+      gravestones.forEach(function(stone) {
+        minimapCtx.fillStyle = '#9b91b8';
+        minimapCtx.fillRect(stone.x * cell + cell * 0.25, stone.y * cell + cell * 0.25, cell * 0.5, cell * 0.5);
+      });
       enemies.forEach(function(enemy) {
         minimapCtx.fillStyle = enemy.name === 'Skeleton Archer' ? '#ffcc66' : enemy.name === 'Orc Bruiser' ? '#44bb44' : '#ff2244';
         minimapCtx.fillRect(enemy.x * cell + cell * 0.2, enemy.y * cell + cell * 0.2, cell * 0.6, cell * 0.6);
@@ -2627,6 +2761,12 @@
           var s = wts(c.x, c.y, cam); drawChest(s.x/cellSize, s.y/cellSize, c.treasure);
         }
       });
+      gravestones.forEach(function(stone) {
+        if (isVisible(stone.x, stone.y) && inViewport(stone.x, stone.y, cam)) {
+          var stoneScreen = wts(stone.x, stone.y, cam);
+          drawGravestone(stoneScreen.x / cellSize, stoneScreen.y / cellSize);
+        }
+      });
       if (secretKey && secretKey.active && isVisible(secretKey.x, secretKey.y) && inViewport(secretKey.x, secretKey.y, cam)) {
         var ks = wts(secretKey.x, secretKey.y, cam); drawSecretKey(ks.x/cellSize, ks.y/cellSize);
       }
@@ -2651,6 +2791,7 @@
 
       drawAoeEffect(now);
       drawFogVignette(cam);
+      drawParticles(now, cam);
       drawFloatTexts(now);
     }
 
@@ -2691,7 +2832,7 @@
       attackBtn.disabled = gameOver || gameWon || isCasting || character.mp < FIREBALL_COST || !target;
     }
     function updateShopButtons() {
-      var costs = { potion:20, mana_potion:30, invisibility_potion:400, sword_upgrade:100, armor_upgrade:150 };
+      var costs = { potion:20, mana_potion:30, invisibility_potion:400, sword_upgrade:100, bless_sword:500, armor_upgrade:150 };
       document.querySelectorAll('.shop-buy-btn').forEach(function(btn) {
         btn.disabled = character.gold < costs[btn.dataset.item];
       });
@@ -2813,6 +2954,8 @@
         var data = await res.json().catch(function(){return{};});
         if (!res.ok) throw new Error(data.detail || 'Odul secilemedi');
         applyState(data);
+        var levelUpOrigin = particleOrigin(player.x, player.y);
+        spawnLevelUpParticles(levelUpOrigin.wx, levelUpOrigin.wy);
         addLog(data.reward.name + ' secildi: ' + data.reward.description, 'exp');
         playActionSound('loot');
       } catch(e) {
@@ -2856,24 +2999,64 @@
         // AoE effect
         if (data.battles) {
           data.battles.forEach(function(b) {
+            if (b.potion_throw || b.dizzy) {
+              canvasFrame.classList.remove('dizzy-effect');
+              void canvasFrame.offsetWidth;
+              canvasFrame.classList.add('dizzy-effect');
+              spawnFloat(player.x, player.y, '🧪 ZEHİRLENDİN!', '#00ff55');
+              playActionSound('boss');
+            }
             if (b.aoe) {
               aoeEffect = { cx:b.aoe_cx, cy:b.aoe_cy, radius:b.aoe_radius||1, born:performance.now() };
+              var aoeOrigin = particleOrigin(b.aoe_cx, b.aoe_cy);
+              spawnHitParticles(aoeOrigin.wx, aoeOrigin.wy, '#ff2244');
               triggerShake();
               playActionSound('boss');
             }
             if (b.enemy_killed) {
-              spawnFloat(b.enemy_x || player.x, b.enemy_y || player.y, '+'+b.gold_gained+'G', '#ffe600');
-              spawnFloat(b.enemy_x || player.x, b.enemy_y || player.y, '+'+b.exp_gained+'EXP', '#39ff14');
+              var enemyX = b.enemy_x != null ? b.enemy_x : player.x;
+              var enemyY = b.enemy_y != null ? b.enemy_y : player.y;
+              var enemyOrigin = particleOrigin(enemyX, enemyY);
+              spawnHitParticles(enemyOrigin.wx, enemyOrigin.wy);
+              if (b.gold_gained > 0) spawnGoldParticles(enemyOrigin.wx, enemyOrigin.wy);
+              spawnFloat(enemyX, enemyY, '+'+b.gold_gained+'G', '#ffe600');
+              spawnFloat(enemyX, enemyY, '+'+b.exp_gained+'EXP', '#39ff14');
               playActionSound('loot');
             }
           });
         }
 
+        var previousChests = chests.map(function(chest) {
+          return { id:chest.id, x:chest.x, y:chest.y, active:chest.active };
+        });
         applyState(data);
+        previousChests.forEach(function(previousChest) {
+          if (!previousChest.active) return;
+          var openedChest = chests.find(function(chest) {
+            return chest.id === previousChest.id && chest.x === previousChest.x &&
+              chest.y === previousChest.y && !chest.active;
+          });
+          if (openedChest) {
+            var chestOrigin = particleOrigin(openedChest.x, openedChest.y);
+            spawnGoldParticles(chestOrigin.wx, chestOrigin.wy);
+          }
+        });
+        if (data.gravestone_collected) {
+          var collectedStone = data.gravestone_collected;
+          var collectedOrigin = particleOrigin(collectedStone.x, collectedStone.y);
+          spawnFloat(collectedStone.x, collectedStone.y, '+'+collectedStone.gold+'G', '#ffcc00');
+          spawnGoldParticles(collectedOrigin.wx, collectedOrigin.wy);
+          playActionSound('loot');
+        }
 
         // Damage taken
         var dmgTaken = prevHp - character.hp;
-        if (dmgTaken > 0) { spawnFloat(player.x, player.y, '-'+dmgTaken+' HP', '#ff4444'); triggerShake(); }
+        if (dmgTaken > 0) {
+          var playerOrigin = particleOrigin(player.x, player.y);
+          spawnHitParticles(playerOrigin.wx, playerOrigin.wy, '#ff0055');
+          spawnFloat(player.x, player.y, '-'+dmgTaken+' HP', '#ff4444');
+          triggerShake();
+        }
 
         processLogs(data.logs);
         if (data.blocked === false && !data.floor_changed) playActionSound('move');
@@ -2916,9 +3099,14 @@
         var data = await res.json().catch(function(){return{};});
         if (!res.ok) { addLog(data.detail||'Saldiri basarisiz','info'); return; }
         triggerShake();
+        var targetOrigin = particleOrigin(target.x, target.y);
+        spawnHitParticles(targetOrigin.wx, targetOrigin.wy, '#ff0055');
         spawnFloat(target.x, target.y, '-30 ATES!', '#ff8800');
         spawnFloat(player.x, player.y, '-20 MP', '#4488ff');
-        if (data.enemy_killed) spawnFloat(target.x, target.y, 'OLDU!', '#ff2244');
+        if (data.enemy_killed) {
+          spawnFloat(target.x, target.y, 'OLDU!', '#ff2244');
+          if (data.gold_gained > 0) spawnGoldParticles(targetOrigin.wx, targetOrigin.wy);
+        }
         applyState(data); processLogs(data.logs);
         if (data.game_won || gameWon) showVictory();
       } catch(e) { addLog('Saldiri hatasi!', 'info'); }
@@ -2976,7 +3164,7 @@
         shopOverlay.classList.remove('active');
         statusOverlay.classList.remove('active');
         gameOver = false; gameWon = false; classSelected = false; map = [];
-        floatTexts = []; aoeEffect = null;
+        floatTexts = []; particles = []; lastParticleFrame = 0; gravestones = []; aoeEffect = null;
         applyState(await res.json());
         showClassSelect();
       } catch(e) { addLog('Sifirlama basarisiz.','info'); }

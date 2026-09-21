@@ -81,6 +81,7 @@ QUEST_TEMPLATES = [
 SHOP_ITEMS = {
     "potion":        {"cost": 20,  "label": "Can İksiri"},
     "sword_upgrade": {"cost": 100, "label": "Kılıç Geliştirmesi"},
+    "bless_sword":   {"cost": 500, "label": "Bless Kılıç"},
     "armor_upgrade": {"cost": 150, "label": "Zırh Geliştirmesi"},
     "mana_potion":   {"cost": 30,  "label": "Mana İksiri"},
     "invisibility_potion": {"cost": 400, "label": "Görünmezlik İksiri"},
@@ -133,6 +134,10 @@ ENEMY_TYPES = {
     "Orc Bruiser": {
         "hp": 80, "damage": 18, "exp": 45, "gold": 35,
         "move_speed": 2, "range": 1, "color": "#44bb44",
+    },
+    "Poison Zombie": {
+        "hp": 45, "damage": 3, "exp": 25, "gold": 20,
+        "move_speed": 1, "range": 4, "color": "#00ff55",
     },
 }
 
@@ -236,6 +241,17 @@ def init_database() -> None:
                 event_type TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
+            );
+            CREATE TABLE IF NOT EXISTS gravestones (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                floor INTEGER NOT NULL,
+                x INTEGER NOT NULL,
+                y INTEGER NOT NULL,
+                cause TEXT NOT NULL,
+                gold INTEGER NOT NULL DEFAULT 0,
+                is_looted INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
             );
             CREATE TRIGGER IF NOT EXISTS prevent_user_delete
             BEFORE DELETE ON users
@@ -387,6 +403,7 @@ game_map: list = []
 fog_matrix: list = []
 enemies: list = []
 chests: list = []
+gravestones: list = []
 merchant_state = {"x": 0, "y": 0}
 stairs_pos: dict = {"x": -1, "y": -1}
 next_enemy_id = 1
@@ -430,6 +447,7 @@ MAX_INVENTORY = 12
 def runtime_state() -> dict:
     return {
         "game_map": game_map, "fog_matrix": fog_matrix, "enemies": enemies, "chests": chests,
+        "gravestones": gravestones,
         "merchant_state": merchant_state, "stairs_pos": stairs_pos, "next_enemy_id": next_enemy_id,
         "game_over": game_over, "game_won": game_won, "boss_entity": boss_entity,
         "class_selected": class_selected, "character_class": character_class,
@@ -441,11 +459,11 @@ def runtime_state() -> dict:
 
 
 def clear_runtime_state() -> None:
-    global game_map, fog_matrix, enemies, chests, merchant_state, stairs_pos, next_enemy_id
+    global game_map, fog_matrix, enemies, chests, gravestones, merchant_state, stairs_pos, next_enemy_id
     global game_over, game_won, boss_entity, class_selected, character_class, daily_quest
     global current_floor, secret_map_index, secret_key, secret_door, has_secret_key
     global equipment, inventory, pending_level_ups
-    game_map, fog_matrix, enemies, chests = [], [], [], []
+    game_map, fog_matrix, enemies, chests, gravestones = [], [], [], [], []
     merchant_state, stairs_pos = {"x": 0, "y": 0}, {"x": -1, "y": -1}
     next_enemy_id = 1
     game_over = game_won = False
@@ -473,7 +491,7 @@ def clear_runtime_state() -> None:
 
 
 def load_game_state(user_id: int) -> None:
-    global current_user_id, game_map, fog_matrix, enemies, chests, merchant_state, stairs_pos, next_enemy_id
+    global current_user_id, game_map, fog_matrix, enemies, chests, gravestones, merchant_state, stairs_pos, next_enemy_id
     global game_over, game_won, boss_entity, class_selected, character_class, daily_quest
     global current_floor, secret_map_index, secret_key, secret_door, has_secret_key
     global player_state, equipment, inventory, pending_level_ups
@@ -495,6 +513,7 @@ def load_game_state(user_id: int) -> None:
     fog_matrix = state.get("fog_matrix", [])
     enemies = state.get("enemies", [])
     chests = state.get("chests", [])
+    gravestones = state.get("gravestones", [])
     merchant_state = state.get("merchant_state", {"x": 0, "y": 0})
     stairs_pos = state.get("stairs_pos", {"x": -1, "y": -1})
     next_enemy_id = state.get("next_enemy_id", 1)
@@ -514,6 +533,7 @@ def load_game_state(user_id: int) -> None:
     equipment = state.get("equipment", {"weapon": None, "armor": None, "accessory": None})
     inventory = state.get("inventory", [])
     pending_level_ups = state.get("pending_level_ups", 0)
+    load_gravestones_for_floor()
 
 
 def save_game_state() -> None:
@@ -901,18 +921,20 @@ def spawn_enemies() -> None:
     random.shuffle(candidates)
 
     enemy_count = min(MAX_ENEMY_COUNT, ENEMY_COUNT + (current_floor - 1) // 5)
-    type_pool = ["Goblin"] * 5 + ["Skeleton Archer"] * 3 + (["Orc Bruiser"] * 2 if current_floor >= 2 else [])
+    type_pool = ["Goblin"] * 4 + ["Skeleton Archer"] * 2 + ["Poison Zombie"] * 6 + (["Orc Bruiser"] * 2 if current_floor >= 2 else [])
 
     for x, y in candidates[:enemy_count]:
         etype = random.choice(type_pool)
         stats = _scale_enemy(etype, current_floor)
-        enemies.append({
+        enemy = {
             "id": next_enemy_id,
             "name": etype,
             "x": x, "y": y,
             **stats,
             "move_timer": 0,
-        })
+            "last_throw": 0.0,
+        }
+        enemies.append(enemy)
         next_enemy_id += 1
 
 
@@ -1035,6 +1057,7 @@ def enter_secret_map(logs: list) -> None:
     spawn_stairs()
     spawn_secret_route()
     spawn_enemies()
+    load_gravestones_for_floor()
     if secret_map_index >= SECRET_MAP_COUNT:
         spawn_boss()
         logs.append({"type": "combat", "message": "🏛️ FINAL HARİTA — Hazineyi koruyan Cyber-Dragon uyandı!"})
@@ -1152,6 +1175,7 @@ def descend_floor(logs: list) -> None:
     spawn_stairs()
     spawn_secret_route()
     spawn_enemies()
+    load_gravestones_for_floor()
 
     if current_floor >= BOSS_FLOOR:
         spawn_boss()
@@ -1199,6 +1223,7 @@ def init_game_with_class(cls: str) -> None:
     spawn_stairs()
     spawn_secret_route()
     spawn_enemies()
+    load_gravestones_for_floor()
     update_fog(0, 0)
 
 
@@ -1226,11 +1251,12 @@ def require_level_choice() -> None:
         raise HTTPException(409, detail="Seviye ödülünü seçmelisin")
 
 
-def check_game_over() -> None:
+def check_game_over(cause: str = "Bilinmeyen düşman") -> None:
     global game_over
-    if player_state["hp"] <= 0:
+    if player_state["hp"] <= 0 and not game_over:
         player_state["hp"] = 0
         game_over = True
+        record_gravestone(cause)
 
 
 def regen_mp_safe() -> None:
@@ -1286,7 +1312,7 @@ def resolve_combat(enemy: dict, logs: list) -> dict:
         dmg = calc_enemy_damage(enemy)
         player_state["hp"] = max(0, player_state["hp"] - dmg)
         logs.append({"type": "combat", "message": f"{enemy['name']} sana {dmg} hasar vurdu!"})
-        check_game_over()
+        check_game_over(enemy["name"])
     return result
 
 
@@ -1304,6 +1330,30 @@ def collect_chest(logs: list) -> None:
         elif daily_quest.get("type") == "open_chests":
             on_chest_opened(logs)
         break
+
+
+def collect_gravestone(logs: list) -> Optional[dict]:
+    global gravestones
+    for stone in gravestones:
+        if (player_state["x"], player_state["y"]) != (stone["x"], stone["y"]):
+            continue
+        with db_connect() as connection:
+            updated = connection.execute(
+                "UPDATE gravestones SET is_looted = 1 WHERE id = ? AND is_looted = 0",
+                (stone["id"],),
+            ).rowcount
+        if not updated:
+            return None
+        player_state["gold"] += stone["gold"]
+        player_state["stats"]["total_gold_earned"] += stone["gold"]
+        logs.append({
+            "type": "gold",
+            "message": f"🪦 {stone['username']} burada {stone['cause']} tarafından katledildi! "
+                       f"Kalıntıları topladın: +{stone['gold']} Altın",
+        })
+        gravestones = [candidate for candidate in gravestones if candidate["id"] != stone["id"]]
+        return {"x": stone["x"], "y": stone["y"], "gold": stone["gold"]}
+    return None
 
 
 def move_enemies(logs: list) -> list:
@@ -1324,17 +1374,39 @@ def move_enemies(logs: list) -> list:
             enemy["move_timer"] = enemy.get("move_timer", 0) + 1
             if enemy["move_timer"] % enemy["move_speed"] != 0:
                 continue
+        
+        if secret_map_index >= SECRET_MAP_COUNT and not game_over and not game_won:
+            step_damage = 5
+            player_state["hp"] = max(0, player_state["hp"] - step_damage)
+            logs.append({"type": "combat", "message": f"🌋 5. haritada adım attığın için {step_damage} hasar aldın!"})
+            check_game_over("5. Harita Zorluğu")
 
         old_x, old_y = enemy["x"], enemy["y"]
         occupied = get_occupied_cells(exclude_enemy_id=enemy["id"])
         dist = tile_distance(enemy["x"], enemy["y"], px, py)
         is_visible = is_tile_visible(enemy["x"], enemy["y"])
 
+        if enemy["name"] == "Poison Zombie" and not invisible and is_visible and dist <= enemy["range"]:
+            now = time.time()
+            if now - float(enemy.get("last_throw", 0.0)) >= 2.0:
+                enemy["last_throw"] = now
+                dmg = max(1, 4 - player_state["damage_reduction"])
+                player_state["hp"] = max(0, player_state["hp"] - dmg)
+                logs.append({"type": "combat", "message": f"🧪 Zombi zehir şişesi fırlattı! ({dmg} hasar, başın dönüyor...)"})
+                check_game_over(enemy["name"])
+                battles.append({
+                    "enemy_id": enemy["id"], "enemy_name": enemy["name"],
+                    "enemy_x": enemy["x"], "enemy_y": enemy["y"],
+                    "enemy_killed": False, "potion_throw": True, "dizzy": True,
+                    "damage_dealt": dmg, "gold_gained": 0, "exp_gained": 0,
+                })
+                continue
+
         if not invisible and enemy.get("range", 1) >= 3 and dist <= enemy["range"] and is_visible:
             dmg = calc_enemy_damage(enemy)
             player_state["hp"] = max(0, player_state["hp"] - dmg)
             logs.append({"type": "combat", "message": f"🏹 {enemy['name']} sana {dmg} ok attı!"})
-            check_game_over()
+            check_game_over(enemy["name"])
             battles.append({
                 "enemy_id": enemy["id"], "enemy_name": enemy["name"],
                 "enemy_x": enemy["x"],   "enemy_y": enemy["y"],
@@ -1388,7 +1460,7 @@ def move_boss(logs: list) -> list:
         boss_entity["aoe_timer"] = 0
         aoe_dmg = max(1, boss_entity["damage"] // 2 - player_state["damage_reduction"])
         player_state["hp"] = max(0, player_state["hp"] - aoe_dmg)
-        check_game_over()
+        check_game_over("Cyber-Dragon")
         logs.append({"type": "combat", "message": f"🔥 Cyber-Dragon'un NEON ALEVI! {aoe_dmg} AoE hasar!"})
         battles.append({
             "enemy_id": 9999, "enemy_name": "Cyber-Dragon",
@@ -1412,7 +1484,7 @@ def move_boss(logs: list) -> list:
         raw_dmg = boss_entity["damage"]
         dmg = max(1, raw_dmg - player_state["damage_reduction"])
         player_state["hp"] = max(0, player_state["hp"] - dmg)
-        check_game_over()
+        check_game_over("Cyber-Dragon")
         logs.append({"type": "combat", "message": f"Cyber-Dragon sana {dmg} hasar vurdu!"})
         battles.append({
             "enemy_id": 9999, "enemy_name": "Cyber-Dragon",
@@ -1468,7 +1540,7 @@ def build_status() -> dict:
             "attack_power": 0, "damage_reduction": 0,
             "x": 0, "y": 0,
             "map": [], "fog_matrix": [],
-            "enemies": [], "chests": [],
+            "enemies": [], "chests": [], "gravestones": [],
             "merchant": {"x": 0, "y": 0, "visible": False},
             "stairs": {"x": -1, "y": -1},
             "secret_key": {"x": -1, "y": -1, "active": False},
@@ -1498,6 +1570,11 @@ def build_status() -> dict:
         "fog_matrix": [row[:] for row in fog_matrix],
         "enemies": get_visible_enemies(),
         "chests": get_visible_chests(),
+        "gravestones": [
+            {"id": stone["id"], "x": stone["x"], "y": stone["y"],
+             "username": stone["username"], "cause": stone["cause"], "gold": stone["gold"]}
+            for stone in gravestones
+        ],
         "merchant": get_visible_merchant(),
         "stairs": dict(stairs_pos),
         "secret_key": dict(secret_key),
@@ -1561,6 +1638,35 @@ def get_username(user_id: Optional[int]) -> Optional[str]:
     with db_connect() as connection:
         row = connection.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
     return row["username"] if row else None
+
+
+def load_gravestones_for_floor() -> None:
+    global gravestones
+    with db_connect() as connection:
+        rows = connection.execute(
+            "SELECT id, username, floor, x, y, cause, gold FROM gravestones "
+            "WHERE floor = ? AND is_looted = 0 ORDER BY id",
+            (current_floor,),
+        ).fetchall()
+    gravestones = [dict(row) for row in rows]
+
+
+def record_gravestone(cause: str) -> None:
+    if not current_user_id:
+        return
+    username = get_username(current_user_id) or "Bilinmeyen oyuncu"
+    lost_gold = max(15, int(player_state.get("gold", 0) * 0.2))
+    created_at = datetime.now(timezone.utc).isoformat()
+    with db_connect() as connection:
+        cursor = connection.execute(
+            "INSERT INTO gravestones(username, floor, x, y, cause, gold, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (username, current_floor, player_state["x"], player_state["y"], cause, lost_gold, created_at),
+        )
+    gravestones.append({
+        "id": cursor.lastrowid, "username": username, "floor": current_floor,
+        "x": player_state["x"], "y": player_state["y"], "cause": cause, "gold": lost_gold,
+    })
 
 
 @app.post("/api/auth/register")
@@ -1737,6 +1843,7 @@ async def move_player(payload: MoveRequest):
 
     logs: list = []
     battles: list = []
+    gravestone_collected = None
     floor_changed = False
     secret_map_changed = False
     blocked = False
@@ -1772,6 +1879,7 @@ async def move_player(payload: MoveRequest):
 
         if not game_over and not game_won:
             collect_chest(logs)
+            gravestone_collected = collect_gravestone(logs)
             collect_secret_key(logs)
 
         if not game_over and not game_won and not blocked:
@@ -1798,6 +1906,7 @@ async def move_player(payload: MoveRequest):
     return {
         **build_status(),
         "logs": logs, "battles": battles,
+        "gravestone_collected": gravestone_collected,
         "blocked": blocked, "floor_changed": floor_changed,
         "secret_map_changed": secret_map_changed,
         "combat_occurred": len(battles) > 0,
@@ -1834,6 +1943,9 @@ async def buy_item(payload: BuyItemRequest):
     elif payload.item == "sword_upgrade":
         player_state["attack_power"] += 5
         message = f"Kılıç güçlendi! ATK: {player_state['attack_power']}"
+    elif payload.item == "bless_sword":
+        player_state["attack_power"] += 500
+        message = f"Bless Kılıç kuşanıldı! ATK: {player_state['attack_power']}"
     elif payload.item == "armor_upgrade":
         player_state["damage_reduction"] += 3
         message = f"Zırh güçlendi! DEF: -{player_state['damage_reduction']}"
