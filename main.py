@@ -1,4 +1,5 @@
 import random
+import copy
 import os
 import hashlib
 import hmac
@@ -32,7 +33,20 @@ TILE = 0
 WALL = 1
 STAIRS = 2
 SECRET_DOOR = 3
+VENT = 4
+TERMINAL = 5
+LASER_CAGE = 6
+EXIT_AIRLOCK = 7
 SECRET_MAP_COUNT = 5
+
+MAP_TILE_LABELS = {
+    TILE: ".",
+    WALL: "#",
+    VENT: "V",
+    TERMINAL: "T",
+    LASER_CAGE: "C",
+    EXIT_AIRLOCK: ">",
+}
 
 FOG_UNEXPLORED = 0
 FOG_VISIBLE = 1
@@ -406,6 +420,7 @@ chests: list = []
 gravestones: list = []
 merchant_state = {"x": 0, "y": 0}
 stairs_pos: dict = {"x": -1, "y": -1}
+stairs_positions: list = []
 next_enemy_id = 1
 game_over = False
 game_won = False
@@ -422,6 +437,18 @@ current_floor = 1
 secret_map_index = 1
 secret_key = {"x": -1, "y": -1, "active": False}
 secret_door = {"x": -1, "y": -1, "open": False}
+station_rooms: list = []
+vents: list = []
+terminals: list = []
+cage_pos: dict = {"x": -1, "y": -1}
+red_key = {"x": -1, "y": -1, "active": False}
+cat_state: dict = {"active": False, "rescued": False, "x": -1, "y": -1, "trail": []}
+red_hatch_pos: dict = {"x": -1, "y": -1}
+cat_quest: dict = {
+    "rescued": False, "in_red_map": False, "has_red_key": False,
+    "spawner_open": False, "saved_floor_state": None, "red_map_data": {},
+    "cat_x": -1, "cat_y": -1, "history": [],
+}
 has_secret_key = False
 
 player_state = {
@@ -448,23 +475,29 @@ def runtime_state() -> dict:
     return {
         "game_map": game_map, "fog_matrix": fog_matrix, "enemies": enemies, "chests": chests,
         "gravestones": gravestones,
-        "merchant_state": merchant_state, "stairs_pos": stairs_pos, "next_enemy_id": next_enemy_id,
+        "merchant_state": merchant_state, "stairs_pos": stairs_pos, "stairs_positions": stairs_positions,
+        "next_enemy_id": next_enemy_id,
         "game_over": game_over, "game_won": game_won, "boss_entity": boss_entity,
         "class_selected": class_selected, "character_class": character_class,
         "daily_quest": daily_quest, "current_floor": current_floor, "secret_map_index": secret_map_index,
         "secret_key": secret_key, "secret_door": secret_door, "has_secret_key": has_secret_key,
+        "red_key": red_key, "cat_state": cat_state,
+        "red_hatch_pos": red_hatch_pos, "cat_quest": cat_quest,
+        "station_rooms": station_rooms, "vents": vents, "terminals": terminals, "cage_pos": cage_pos,
         "player_state": player_state, "equipment": equipment, "inventory": inventory,
         "pending_level_ups": pending_level_ups,
     }
 
 
 def clear_runtime_state() -> None:
-    global game_map, fog_matrix, enemies, chests, gravestones, merchant_state, stairs_pos, next_enemy_id
+    global game_map, fog_matrix, enemies, chests, gravestones, merchant_state, stairs_pos, stairs_positions, next_enemy_id
     global game_over, game_won, boss_entity, class_selected, character_class, daily_quest
     global current_floor, secret_map_index, secret_key, secret_door, has_secret_key
-    global equipment, inventory, pending_level_ups
+    global station_rooms, vents, terminals, cage_pos, red_key, cat_state, red_hatch_pos, cat_quest, equipment, inventory, pending_level_ups
     game_map, fog_matrix, enemies, chests, gravestones = [], [], [], [], []
-    merchant_state, stairs_pos = {"x": 0, "y": 0}, {"x": -1, "y": -1}
+    merchant_state, stairs_pos, stairs_positions = {"x": 0, "y": 0}, {"x": -1, "y": -1}, []
+    station_rooms, vents, terminals = [], [], []
+    cage_pos = {"x": -1, "y": -1}
     next_enemy_id = 1
     game_over = game_won = False
     boss_entity = None
@@ -474,6 +507,14 @@ def clear_runtime_state() -> None:
     current_floor = secret_map_index = 1
     secret_key = {"x": -1, "y": -1, "active": False}
     secret_door = {"x": -1, "y": -1, "open": False}
+    red_key = {"x": -1, "y": -1, "active": False}
+    cat_state = {"active": False, "rescued": False, "x": -1, "y": -1, "trail": []}
+    red_hatch_pos = {"x": -1, "y": -1}
+    cat_quest = {
+        "rescued": False, "in_red_map": False, "has_red_key": False,
+        "spawner_open": False, "saved_floor_state": None, "red_map_data": {},
+        "cat_x": -1, "cat_y": -1, "history": [],
+    }
     has_secret_key = False
     equipment = {"weapon": None, "armor": None, "accessory": None}
     inventory = []
@@ -491,9 +532,9 @@ def clear_runtime_state() -> None:
 
 
 def load_game_state(user_id: int) -> None:
-    global current_user_id, game_map, fog_matrix, enemies, chests, gravestones, merchant_state, stairs_pos, next_enemy_id
+    global current_user_id, game_map, fog_matrix, enemies, chests, gravestones, merchant_state, stairs_pos, stairs_positions, next_enemy_id
     global game_over, game_won, boss_entity, class_selected, character_class, daily_quest
-    global current_floor, secret_map_index, secret_key, secret_door, has_secret_key
+    global current_floor, secret_map_index, secret_key, secret_door, has_secret_key, red_key, cat_state, red_hatch_pos, cat_quest
     global player_state, equipment, inventory, pending_level_ups
     global achievement_cache_user_id, achievement_cache
     current_user_id = user_id
@@ -509,13 +550,17 @@ def load_game_state(user_id: int) -> None:
         clear_runtime_state()
         return
     game_map = state.get("game_map", [])
-    ensure_map_connected(game_map)
+    if not state.get("cat_quest", {}).get("in_red_map"):
+        ensure_map_connected(game_map)
     fog_matrix = state.get("fog_matrix", [])
     enemies = state.get("enemies", [])
     chests = state.get("chests", [])
     gravestones = state.get("gravestones", [])
     merchant_state = state.get("merchant_state", {"x": 0, "y": 0})
     stairs_pos = state.get("stairs_pos", {"x": -1, "y": -1})
+    stairs_positions = state.get("stairs_positions", [])
+    if not stairs_positions and stairs_pos.get("x", -1) >= 0:
+        stairs_positions = [dict(stairs_pos)]
     next_enemy_id = state.get("next_enemy_id", 1)
     game_over, game_won = state.get("game_over", False), state.get("game_won", False)
     boss_entity = state.get("boss_entity")
@@ -526,10 +571,46 @@ def load_game_state(user_id: int) -> None:
     current_floor, secret_map_index = state.get("current_floor", 1), state.get("secret_map_index", 1)
     secret_key = state.get("secret_key", {"x": -1, "y": -1, "active": False})
     secret_door = state.get("secret_door", {"x": -1, "y": -1, "open": False})
+    red_key = state.get("red_key", {"x": -1, "y": -1, "active": False})
+    cat_state = state.get("cat_state", {"active": False, "rescued": False, "x": -1, "y": -1, "trail": []})
+    red_hatch_pos = state.get("red_hatch_pos", {"x": -1, "y": -1})
+    cat_quest = state.get("cat_quest", {
+        "rescued": False, "in_red_map": False, "has_red_key": False,
+        "spawner_open": False, "saved_floor_state": None, "red_map_data": {},
+        "cat_x": -1, "cat_y": -1, "history": [],
+    })
+    if secret_map_index != 3 and not cat_quest.get("in_red_map"):
+        red_hatch_pos = {"x": -1, "y": -1}
+    if game_over:
+        restore_floor_after_red_map_death()
+    station_rooms = state.get("station_rooms", [])
+    vents = state.get("vents", [])
+    terminals = state.get("terminals", [])
+    cage_pos = state.get("cage_pos", {"x": -1, "y": -1})
     has_secret_key = state.get("has_secret_key", False)
     player_state = state.get("player_state", player_state)
     player_state.setdefault("stats", {"enemies_killed": 0, "total_gold_earned": 0, "highest_floor": current_floor, "games_won": 0})
     player_state.setdefault("invisible_until", 0)
+    if (game_map and not cat_quest.get("in_red_map") and secret_map_index < SECRET_MAP_COUNT
+            and len(stairs_positions) < 3):
+        for row in game_map:
+            for x, tile in enumerate(row):
+                if tile == STAIRS:
+                    row[x] = TILE
+        spawn_stairs()
+        if secret_map_index == 3:
+            setup_red_hatch()
+    if station_rooms and not cat_quest.get("in_red_map"):
+        game_map = generate_bsp_map()
+        station_rooms, vents, terminals = [], [], []
+        cage_pos = {"x": -1, "y": -1}
+        player_state["x"], player_state["y"] = find_safe_spawn(game_map)
+        init_fog()
+        spawn_chests()
+        spawn_merchant()
+        spawn_stairs()
+        spawn_secret_route()
+        spawn_enemies()
     equipment = state.get("equipment", {"weapon": None, "armor": None, "accessory": None})
     inventory = state.get("inventory", [])
     pending_level_ups = state.get("pending_level_ups", 0)
@@ -693,6 +774,77 @@ def _carve_corridor(grid, room_a, room_b):
             if 0 < x < GRID_SIZE - 1: grid[ay][x] = TILE
 
 
+def generate_station_map() -> tuple[list, list, list, list, dict]:
+    grid = [[WALL] * GRID_SIZE for _ in range(GRID_SIZE)]
+    rooms = [
+        {"name": "Kafeterya", "x1": 8, "y1": 9, "x2": 24, "y2": 20},
+        {"name": "Elektrik Odası", "x1": 2, "y1": 3, "x2": 11, "y2": 12},
+        {"name": "Reaktör Odası", "x1": 22, "y1": 19, "x2": 30, "y2": 29},
+        {"name": "Güvenlik Odası", "x1": 22, "y1": 3, "x2": 30, "y2": 12},
+    ]
+
+    for room in rooms:
+        for y in range(room["y1"], room["y2"] + 1):
+            for x in range(room["x1"], room["x2"] + 1):
+                grid[y][x] = TILE
+
+    connects = [
+        ((17, 14), (17, 19)),
+        ((17, 14), (8, 8)),
+        ((17, 14), (26, 14)),
+        ((17, 14), (26, 24)),
+    ]
+    for (x1, y1), (x2, y2) in connects:
+        x, y = x1, y1
+        while x != x2:
+            grid[y][x] = TILE
+            x += 1 if x < x2 else -1
+        while y != y2:
+            grid[y][x] = TILE
+            y += 1 if y < y2 else -1
+
+    for room in rooms:
+        cx = (room["x1"] + room["x2"]) // 2
+        cy = (room["y1"] + room["y2"]) // 2
+        for y in range(cy - 1, cy + 2):
+            for x in range(cx - 1, cx + 2):
+                if 0 <= x < GRID_SIZE and 0 <= y < GRID_SIZE:
+                    grid[y][x] = TILE
+
+    room_list = []
+    for room in rooms:
+        room_list.append({
+            "name": room["name"],
+            "x1": room["x1"], "y1": room["y1"],
+            "x2": room["x2"], "y2": room["y2"],
+        })
+
+    vent_positions = [
+        {"id": 1, "x": 12, "y": 14},
+        {"id": 2, "x": 23, "y": 14},
+        {"id": 3, "x": 26, "y": 24},
+    ]
+    terminals = [
+        {"id": 1, "x": 6, "y": 8, "type": "electrical", "completed": False},
+        {"id": 2, "x": 25, "y": 22, "type": "reactor", "completed": False},
+    ]
+    for vent in vent_positions:
+        grid[vent["y"]][vent["x"]] = VENT
+    for terminal in terminals:
+        grid[terminal["y"]][terminal["x"]] = TERMINAL
+
+    cage_pos = {"x": 27, "y": 7}
+    grid[cage_pos["y"]][cage_pos["x"]] = LASER_CAGE
+    exit_pos = {"x": 28, "y": 26}
+    grid[exit_pos["y"]][exit_pos["x"]] = EXIT_AIRLOCK
+
+    caf_x, caf_y = 17, 15
+    player_state["x"], player_state["y"] = caf_x, caf_y
+    grid[caf_y][caf_x] = TILE
+
+    return grid, room_list, vent_positions, terminals, cage_pos
+
+
 def generate_bsp_map() -> list:
     grid = [[WALL] * GRID_SIZE for _ in range(GRID_SIZE)]
     root = BSPNode(0, 0, GRID_SIZE, GRID_SIZE)
@@ -703,6 +855,125 @@ def generate_bsp_map() -> list:
             grid[yy][xx] = TILE
     ensure_map_connected(grid)
     return grid
+
+
+def generate_level_map() -> list:
+    grid, rooms, vents_data, terminals_data, cage = generate_station_map()
+    global station_rooms, vents, terminals, cage_pos
+    station_rooms = rooms
+    vents = vents_data
+    terminals = terminals_data
+    cage_pos = cage
+    return grid
+
+
+def default_cat_quest() -> dict:
+    return {
+        "rescued": False, "in_red_map": False, "has_red_key": False,
+        "spawner_open": False, "saved_floor_state": None, "red_map_data": {},
+        "cat_x": -1, "cat_y": -1, "history": [],
+    }
+
+
+def generate_red_map() -> tuple[list, dict]:
+    width, height = 18, 9
+    grid = [[WALL] * width for _ in range(height)]
+    for y in range(1, 8):
+        for x in range(1, 17):
+            grid[y][x] = TILE
+    for x in range(2, 6):
+        grid[2][x] = TILE
+    for y in range(2, 7):
+        grid[y][5] = TILE
+    hatch = {"x": 1, "y": 2}
+    spawner = {"x": 4, "y": 6, "width": 2, "height": 2}
+    grid[hatch["y"]][hatch["x"]] = STAIRS
+    for y in range(spawner["y"], spawner["y"] + spawner["height"]):
+        for x in range(spawner["x"], spawner["x"] + spawner["width"]):
+            grid[y][x] = LASER_CAGE
+    red_key_pos = {"x": 10, "y": 4, "active": True}
+    data = {
+        "width": width, "height": height, "theme": "red",
+        "hatch_pos": hatch, "spawner_pos": spawner,
+        "red_key": red_key_pos,
+        "rooms": [
+            {"name": "Kırmızı Koridor", "x1": 1, "y1": 1, "x2": 16, "y2": 5},
+            {"name": "Siber Spawner", "x1": 4, "y1": 6, "x2": 5, "y2": 7},
+        ],
+    }
+    return grid, data
+
+
+def setup_red_hatch() -> None:
+    global red_hatch_pos
+    if secret_map_index != 3 or not game_map:
+        red_hatch_pos = {"x": -1, "y": -1}
+        return
+    candidates = [(17, 14), (17, 15), (16, 14), (18, 14)]
+    candidates += [(x, y) for y in range(1, GRID_SIZE - 1) for x in range(1, GRID_SIZE - 1)]
+    hx, hy = next((x, y) for x, y in candidates if is_in_bounds(x, y) and game_map[y][x] == TILE)
+    red_hatch_pos = {"x": hx, "y": hy}
+    game_map[hy][hx] = STAIRS
+
+
+def update_cat_follow_history() -> None:
+    if not cat_quest.get("rescued"):
+        return
+    history = cat_quest.setdefault("history", [])
+    history.append([player_state["x"], player_state["y"]])
+    while len(history) > 4:
+        history.pop(0)
+    if len(history) >= 3:
+        cat_quest["cat_x"], cat_quest["cat_y"] = history[-3]
+        cat_state["x"], cat_state["y"] = cat_quest["cat_x"], cat_quest["cat_y"]
+
+
+def is_at_red_hatch() -> bool:
+    return (not cat_quest.get("in_red_map") and secret_map_index == 3 and
+            (player_state["x"], player_state["y"]) == (red_hatch_pos.get("x"), red_hatch_pos.get("y")))
+
+
+def is_at_red_exit() -> bool:
+    hatch = cat_quest.get("red_map_data", {}).get("hatch_pos", {})
+    if not cat_quest.get("in_red_map"):
+        return False
+    return abs(player_state["x"] - hatch.get("x", -99)) <= 1 and abs(player_state["y"] - hatch.get("y", -99)) <= 1
+
+
+def restore_floor_after_red_map_death() -> None:
+    global game_map, enemies, chests, fog_matrix, stairs_pos, stairs_positions, merchant_state, boss_entity
+    global station_rooms, vents, terminals, cage_pos
+    if not cat_quest.get("in_red_map"):
+        return
+    saved = cat_quest.get("saved_floor_state")
+    if not saved:
+        return
+    game_map = saved["game_map"]
+    enemies = saved["enemies"]
+    chests = saved["chests"]
+    fog_matrix = saved["fog_matrix"]
+    stairs_pos = saved["stairs_pos"]
+    stairs_positions = saved.get("stairs_positions", [dict(stairs_pos)])
+    merchant_state = saved["merchant_state"]
+    boss_entity = saved["boss_entity"]
+    station_rooms = saved["station_rooms"]
+    vents = saved["vents"]
+    terminals = saved["terminals"]
+    cage_pos = saved["cage_pos"]
+    player_state["x"], player_state["y"] = saved["player_x"], saved["player_y"]
+    cat_quest["in_red_map"] = False
+
+
+def find_safe_spawn(grid: list) -> tuple[int, int]:
+    preferred = (17, 15)
+    if (is_in_bounds(*preferred)
+            and grid[preferred[1]][preferred[0]] != WALL):
+        return preferred
+    for y in range(1, GRID_SIZE - 1):
+        for x in range(1, GRID_SIZE - 1):
+            if grid[y][x] != WALL:
+                return x, y
+    return 1, 1
 
 
 def get_reachable_cells(grid: list, start: tuple = (0, 0)) -> set:
@@ -793,6 +1064,8 @@ def astar(start, goal, occupied: set) -> Optional[tuple]:
 
 
 def is_in_bounds(x: int, y: int) -> bool:
+    if game_map:
+        return 0 <= y < len(game_map) and 0 <= x < len(game_map[y])
     return 0 <= x < GRID_SIZE and 0 <= y < GRID_SIZE
 
 
@@ -838,19 +1111,30 @@ def get_spawn_candidates(exclude: Optional[set] = None) -> list:
 
 
 def spawn_stairs() -> None:
-    global stairs_pos
+    global stairs_pos, stairs_positions
     if current_floor >= BOSS_FLOOR or secret_map_index >= SECRET_MAP_COUNT:
         stairs_pos = {"x": -1, "y": -1}
+        stairs_positions = []
         return
     exclude = {(player_state["x"], player_state["y"]), (0, 0)}
     for c in chests:
         exclude.add((c["x"], c["y"]))
     exclude.add((merchant_state["x"], merchant_state["y"]))
     candidates = get_spawn_candidates(exclude)
-    candidates.sort(key=lambda p: -(abs(p[0]) + abs(p[1])))
-    if candidates:
-        sx, sy = candidates[0]
-        stairs_pos = {"x": sx, "y": sy}
+    random.shuffle(candidates)
+    spaced_candidates = []
+    for candidate in candidates:
+        if all(manhattan(candidate[0], candidate[1], selected[0], selected[1]) >= 12
+               for selected in spaced_candidates):
+            spaced_candidates.append(candidate)
+        if len(spaced_candidates) == 3:
+            break
+    if len(spaced_candidates) < 3:
+        spaced_candidates.extend(candidate for candidate in candidates if candidate not in spaced_candidates)
+    stairs_positions = [{"x": x, "y": y} for x, y in spaced_candidates[:3]]
+    stairs_positions.sort(key=lambda point: (point["y"], point["x"]))
+    for stair in stairs_positions:
+        sx, sy = stair["x"], stair["y"]
         game_map[sy][sx] = STAIRS
         if fog_matrix:
             for dy in range(-1, 2):
@@ -858,8 +1142,7 @@ def spawn_stairs() -> None:
                     nx, ny = sx + dx, sy + dy
                     if is_in_bounds(nx, ny) and fog_matrix[ny][nx] == FOG_UNEXPLORED:
                         fog_matrix[ny][nx] = FOG_FOGGY
-    else:
-        stairs_pos = {"x": -1, "y": -1}
+    stairs_pos = dict(stairs_positions[0]) if stairs_positions else {"x": -1, "y": -1}
 
 
 def spawn_chests() -> None:
@@ -965,14 +1248,32 @@ def spawn_secret_route() -> None:
                (stairs_pos["x"], stairs_pos["y"]),
                (merchant_state["x"], merchant_state["y"])}
     exclude.update((c["x"], c["y"]) for c in chests if c["active"])
-    candidates = get_spawn_candidates(exclude)
-    if len(candidates) < 2:
+    floor_candidates = get_spawn_candidates(exclude)
+    if not floor_candidates:
         return
-    random.shuffle(candidates)
-    key_pos = candidates[0]
-    distant_candidates = [p for p in candidates[1:]
+    random.shuffle(floor_candidates)
+    key_pos = floor_candidates[0]
+    distant_candidates = [p for p in floor_candidates[1:]
                           if abs(p[0] - key_pos[0]) + abs(p[1] - key_pos[1]) >= GRID_SIZE // 3]
-    door_pos = random.choice(distant_candidates or candidates[1:])
+    if not distant_candidates:
+        distant_candidates = floor_candidates[1:]
+    if not distant_candidates:
+        return
+
+    wall_candidates = []
+    for y in range(1, GRID_SIZE - 1):
+        for x in range(1, GRID_SIZE - 1):
+            if game_map[y][x] != WALL or (x, y) in exclude:
+                continue
+            has_floor_neighbor = any(
+                game_map[y + dy][x + dx] == TILE
+                for dx, dy in DIR_DELTA.values()
+            )
+            if has_floor_neighbor:
+                wall_candidates.append((x, y))
+    if not wall_candidates:
+        return
+    door_pos = random.choice(wall_candidates)
     secret_key = {"x": key_pos[0], "y": key_pos[1], "active": True}
     secret_door = {"x": door_pos[0], "y": door_pos[1], "open": False}
     game_map[door_pos[1]][door_pos[0]] = SECRET_DOOR
@@ -980,12 +1281,14 @@ def spawn_secret_route() -> None:
 
 def init_fog() -> None:
     global fog_matrix
-    fog_matrix = [[FOG_UNEXPLORED] * GRID_SIZE for _ in range(GRID_SIZE)]
+    height = len(game_map) or GRID_SIZE
+    width = len(game_map[0]) if game_map else GRID_SIZE
+    fog_matrix = [[FOG_UNEXPLORED] * width for _ in range(height)]
 
 
 def update_fog(px: int, py: int, radius: int = 4) -> None:
-    for y in range(GRID_SIZE):
-        for x in range(GRID_SIZE):
+    for y in range(len(fog_matrix)):
+        for x in range(len(fog_matrix[y])):
             if fog_matrix[y][x] == FOG_VISIBLE:
                 fog_matrix[y][x] = FOG_FOGGY
     for dy in range(-radius, radius + 1):
@@ -1024,7 +1327,8 @@ def is_at_merchant() -> bool:
 
 
 def is_at_stairs() -> bool:
-    return (player_state["x"] == stairs_pos["x"] and player_state["y"] == stairs_pos["y"])
+    return any((player_state["x"], player_state["y"]) == (stair["x"], stair["y"])
+               for stair in stairs_positions)
 
 
 def is_at_secret_door() -> bool:
@@ -1038,6 +1342,181 @@ def collect_secret_key(logs: list) -> None:
         has_secret_key = True
         secret_door["open"] = True
         logs.append({"type": "quest", "message": f"🗝️ Gizli geçit anahtarını buldun! Harita {secret_map_index}/5"})
+
+
+def spawn_cat_cage_floor3() -> None:
+    global red_key, cat_state, cage_pos
+    if current_floor != 3:
+        return
+    if not isinstance(cage_pos, dict) or cage_pos.get("x") is None:
+        cage_pos = {"x": 27, "y": 7}
+    if 0 <= cage_pos["x"] < GRID_SIZE and 0 <= cage_pos["y"] < GRID_SIZE:
+        game_map[cage_pos["y"]][cage_pos["x"]] = LASER_CAGE
+
+    if red_key.get("active") is False and red_key.get("x", -1) == -1:
+        candidates = []
+        for y in range(1, GRID_SIZE - 1):
+            for x in range(1, GRID_SIZE - 1):
+                if game_map[y][x] != WALL and (x, y) not in {(player_state["x"], player_state["y"]), (cage_pos["x"], cage_pos["y"]), (0, 0)}:
+                    candidates.append((x, y))
+        if candidates:
+            candidate = random.choice(candidates)
+            red_key = {"x": candidate[0], "y": candidate[1], "active": True}
+
+    cat_state = {
+        "active": True,
+        "rescued": False,
+        "x": cage_pos["x"],
+        "y": max(0, cage_pos["y"] - 1),
+        "trail": [(player_state["x"], player_state["y"])],
+    }
+
+
+def clear_cat_state() -> None:
+    global red_key, cat_state
+    red_key = {"x": -1, "y": -1, "active": False}
+    cat_state = {"active": False, "rescued": False, "x": -1, "y": -1, "trail": []}
+
+
+def collect_red_key(logs: list) -> None:
+    global red_key
+    if cat_quest.get("in_red_map"):
+        red_map_key = cat_quest.get("red_map_data", {}).get("red_key", {})
+        if red_map_key.get("active") and (player_state["x"], player_state["y"]) == (red_map_key.get("x"), red_map_key.get("y")):
+            red_map_key["active"] = False
+            cat_quest["has_red_key"] = True
+            logs.append({"type": "quest", "message": "🟥 Kırmızı anahtar alındı. Spawner açılabilir."})
+        return
+    if red_key.get("active") and (player_state["x"], player_state["y"]) == (red_key["x"], red_key["y"]):
+        red_key["active"] = False
+        logs.append({"type": "quest", "message": "🟥 Kırmızı anahtar alındı. Lazer kafes açılabilir."})
+
+
+def is_adjacent(ax: int, ay: int, bx: int, by: int) -> bool:
+    return abs(ax - bx) + abs(ay - by) <= 1
+
+
+def update_cat_follow() -> None:
+    if not cat_state.get("active") or not cat_state.get("rescued"):
+        return
+    trail = cat_state.setdefault("trail", [])
+    trail.append((player_state["x"], player_state["y"]))
+    if len(trail) > 3:
+        trail[:] = trail[-3:]
+    if len(trail) < 2:
+        return
+    target_x, target_y = trail[-2]
+    cx, cy = cat_state["x"], cat_state["y"]
+    if (cx, cy) == (target_x, target_y):
+        return
+    options = []
+    for dx, dy in DIR_DELTA.values():
+        nx, ny = cx + dx, cy + dy
+        if not is_in_bounds(nx, ny):
+            continue
+        if game_map[ny][nx] == WALL:
+            continue
+        if (nx, ny) == (player_state["x"], player_state["y"]):
+            continue
+        score = abs(nx - target_x) + abs(ny - target_y)
+        options.append((score, nx, ny))
+    if not options:
+        return
+    _, nx, ny = min(options)
+    cat_state["x"], cat_state["y"] = nx, ny
+
+
+@app.post("/api/unlock-cat")
+async def unlock_cat():
+    require_class_selected()
+    if cat_quest.get("in_red_map"):
+        spawner = cat_quest.get("red_map_data", {}).get("spawner_pos", {})
+        distance = ((player_state["x"] - spawner.get("x", -99)) ** 2 +
+                    (player_state["y"] - spawner.get("y", -99)) ** 2) ** 0.5
+        if cat_quest.get("rescued"):
+            return {**build_status(), "success": True, "logs": [{"type": "info", "message": "🐾 Siber kedi seni takip ediyor."}]}
+        if not cat_quest.get("has_red_key"):
+            raise HTTPException(400, detail="Kırmızı anahtar eksik")
+        if distance > 1.5:
+            raise HTTPException(400, detail="Spawner'ın yanında olmalısın")
+        cat_quest["rescued"] = True
+        cat_quest["spawner_open"] = True
+        cat_quest["has_red_key"] = False
+        cat_quest["cat_x"], cat_quest["cat_y"] = player_state["x"] - 1, player_state["y"]
+        if not is_in_bounds(cat_quest["cat_x"], cat_quest["cat_y"]):
+            cat_quest["cat_x"], cat_quest["cat_y"] = player_state["x"], player_state["y"] - 1
+        cat_quest["history"] = [[player_state["x"], player_state["y"]]] * 3
+        cat_state.update({"active": True, "rescued": True, "x": cat_quest["cat_x"], "y": cat_quest["cat_y"], "trail": []})
+        return {**build_status(), "success": True, "message": "Kafes açıldı", "logs": [{"type": "quest", "message": "🐾 Siber Kedi kurtarıldı! Arkandan geliyor."}]}
+    if not cat_state.get("active"):
+        raise HTTPException(400, detail="Kafes aktif değil")
+    if cat_state.get("rescued"):
+        return {**build_status(), "success": True, "message": "Siber kedi zaten serbest", "logs": [{"type": "info", "message": "🐾 Siber kedi seni takip ediyor."}]}
+    if red_key.get("active"):
+        raise HTTPException(400, detail="Kırmızı anahtar eksik")
+    if not cage_pos or not is_adjacent(player_state["x"], player_state["y"], cage_pos["x"], cage_pos["y"]):
+        raise HTTPException(400, detail="Lazer kafesin yanındasın ama anahtar hazır değil")
+
+    cat_state["rescued"] = True
+    cat_state["x"], cat_state["y"] = cage_pos["x"], max(0, cage_pos["y"] - 1)
+    cat_state["trail"] = [(player_state["x"], player_state["y"])]
+    logs = [{"type": "quest", "message": "🔓 Lazer kafes açıldı. Siber kedi serbest kaldı!"}]
+    return {**build_status(), "success": True, "message": "Kafes açıldı", "logs": logs}
+
+
+@app.post("/api/enter-red-map")
+async def enter_red_map():
+    global game_map, enemies, chests, fog_matrix, stairs_pos, stairs_positions, merchant_state, boss_entity
+    require_class_selected()
+    if secret_map_index != 3 or cat_quest.get("in_red_map") or not is_at_red_hatch():
+        raise HTTPException(400, detail="Kırmızı Oda girişinde değilsin")
+    cat_quest["saved_floor_state"] = {
+        "game_map": copy.deepcopy(game_map), "enemies": copy.deepcopy(enemies),
+        "chests": copy.deepcopy(chests), "player_x": player_state["x"],
+        "player_y": player_state["y"], "fog_matrix": copy.deepcopy(fog_matrix),
+        "stairs_pos": copy.deepcopy(stairs_pos), "stairs_positions": copy.deepcopy(stairs_positions),
+        "merchant_state": copy.deepcopy(merchant_state),
+        "boss_entity": copy.deepcopy(boss_entity), "station_rooms": copy.deepcopy(station_rooms),
+        "vents": copy.deepcopy(vents), "terminals": copy.deepcopy(terminals),
+        "cage_pos": copy.deepcopy(cage_pos), "red_hatch_pos": copy.deepcopy(red_hatch_pos),
+    }
+    red_grid, red_data = generate_red_map()
+    cat_quest["red_map_data"] = red_data
+    cat_quest["in_red_map"] = True
+    game_map, enemies, chests = red_grid, [], []
+    stairs_pos = dict(red_data["hatch_pos"])
+    stairs_positions = [dict(stairs_pos)]
+    merchant_state = {"x": -1, "y": -1}
+    boss_entity = None
+    player_state["x"], player_state["y"] = 1, 2
+    init_fog()
+    update_fog(1, 2)
+    return {**build_status(), "success": True, "message": "Kırmızı Odaya indin", "logs": [{"type": "quest", "message": "🔻 Kırmızı Oda açıldı."}]}
+
+
+@app.post("/api/exit-red-map")
+async def exit_red_map():
+    global game_map, enemies, chests, fog_matrix, stairs_pos, stairs_positions, merchant_state, boss_entity
+    global station_rooms, vents, terminals, cage_pos
+    require_class_selected()
+    if not is_at_red_exit():
+        raise HTTPException(400, detail="Kırmızı Oda çıkış merdiveninde değilsin")
+    saved = cat_quest.get("saved_floor_state")
+    if not saved:
+        raise HTTPException(400, detail="Kat durumu bulunamadı")
+    game_map, enemies, chests = saved["game_map"], saved["enemies"], saved["chests"]
+    fog_matrix = saved["fog_matrix"]
+    stairs_pos = saved["stairs_pos"]
+    stairs_positions = saved.get("stairs_positions", [dict(stairs_pos)])
+    merchant_state, boss_entity = saved["merchant_state"], saved["boss_entity"]
+    station_rooms, vents = saved["station_rooms"], saved["vents"]
+    terminals, cage_pos = saved["terminals"], saved["cage_pos"]
+    player_state["x"], player_state["y"] = red_hatch_pos["x"], red_hatch_pos["y"]
+    cat_quest["in_red_map"] = False
+    if cat_quest.get("rescued"):
+        cat_quest["cat_x"], cat_quest["cat_y"] = player_state["x"] - 1, player_state["y"]
+        cat_state.update({"active": True, "rescued": True, "x": cat_quest["cat_x"], "y": cat_quest["cat_y"]})
+    return {**build_status(), "success": True, "message": "3. kata döndün", "logs": [{"type": "quest", "message": "🔺 Kırmızı Odadan çıktın."}]}
 
 
 def enter_secret_map(logs: list) -> None:
@@ -1057,6 +1536,7 @@ def enter_secret_map(logs: list) -> None:
     spawn_stairs()
     spawn_secret_route()
     spawn_enemies()
+    setup_red_hatch()
     load_gravestones_for_floor()
     if secret_map_index >= SECRET_MAP_COUNT:
         spawn_boss()
@@ -1189,32 +1669,49 @@ def descend_floor(logs: list) -> None:
 
 def init_game_with_class(cls: str) -> None:
     global game_map, game_over, game_won, boss_entity, next_enemy_id, character_class
-    global class_selected, current_floor, equipment, inventory, secret_map_index, pending_level_ups
+    global class_selected, current_floor, equipment, inventory, secret_map_index, pending_level_ups, cat_quest, red_hatch_pos
+    global station_rooms, vents, terminals, cage_pos, cat_state, red_key
+    saved_progress = copy.deepcopy(player_state)
+    saved_equipment = copy.deepcopy(equipment)
+    saved_inventory = copy.deepcopy(inventory)
     character_class = cls
     class_selected = True
     current_floor = 1
     secret_map_index = 1
     game_won = False
     pending_level_ups = 0
+    cat_quest = default_cat_quest()
+    cat_state = {"active": False, "rescued": False, "x": -1, "y": -1, "trail": []}
+    red_key = {"x": -1, "y": -1, "active": False}
+    red_hatch_pos = {"x": -1, "y": -1}
     boss_entity = None
-    equipment = {"weapon": None, "armor": None, "accessory": None}
-    inventory = []
+    equipment = saved_equipment
+    inventory = saved_inventory
 
     game_map = generate_bsp_map()
+    station_rooms, vents, terminals = [], [], []
+    cage_pos = {"x": -1, "y": -1}
+    spawn_x, spawn_y = find_safe_spawn(game_map)
     stats = CLASS_STATS[cls]
     player_state.update({
         "hp": stats["hp"], "max_hp": stats["max_hp"],
-        "gold": stats["gold"], "exp": 0, "level": 1,
-        "exp_to_next": EXP_TO_LEVEL,
+        "gold": max(stats["gold"], saved_progress.get("gold", 0)),
+        "exp": saved_progress.get("exp", 0),
+        "level": saved_progress.get("level", 1),
+        "exp_to_next": saved_progress.get("exp_to_next", EXP_TO_LEVEL),
         "attack_power": stats["attack_power"],
         "damage_reduction": 0,
         "mp": stats["mp"], "max_mp": stats["max_mp"],
-        "level_attack_bonus": 0, "level_defense_bonus": 0,
-        "level_max_hp_bonus": 0, "level_max_mp_bonus": 0,
-        "x": 0, "y": 0,
+        "level_attack_bonus": saved_progress.get("level_attack_bonus", 0),
+        "level_defense_bonus": saved_progress.get("level_defense_bonus", 0),
+        "level_max_hp_bonus": saved_progress.get("level_max_hp_bonus", 0),
+        "level_max_mp_bonus": saved_progress.get("level_max_mp_bonus", 0),
+        "x": spawn_x, "y": spawn_y,
         "character_class": cls,
-        "stats": {"enemies_killed": 0, "total_gold_earned": 0, "highest_floor": 1, "games_won": 0},
+        "stats": copy.deepcopy(saved_progress.get(
+            "stats", {"enemies_killed": 0, "total_gold_earned": 0, "highest_floor": 1, "games_won": 0})),
     })
+    recalc_stats()
     game_over = False
     init_daily_quest()
     init_fog()
@@ -1256,6 +1753,7 @@ def check_game_over(cause: str = "Bilinmeyen düşman") -> None:
     if player_state["hp"] <= 0 and not game_over:
         player_state["hp"] = 0
         game_over = True
+        restore_floor_after_red_map_death()
         record_gravestone(cause)
 
 
@@ -1522,13 +2020,50 @@ def attack_boss(atk: int, logs: list) -> dict:
             "damage_dealt": effective_atk}
 
 
+def cat_attack_boss(logs: list) -> Optional[dict]:
+    global boss_entity, game_won
+    if (boss_entity is None or game_won or secret_map_index < SECRET_MAP_COUNT
+            or not cat_quest.get("rescued")
+            or not is_tile_visible(boss_entity["x"], boss_entity["y"])):
+        return None
+
+    cat_damage = 300
+    boss_entity["hp"] -= cat_damage
+    logs.append({"type": "combat", "message": f"🐾 Siber Kedi boss'a saldırdı! -{cat_damage} HP"})
+    if boss_entity["hp"] <= 0:
+        boss_entity["hp"] = 0
+        game_won = True
+        player_state["gold"] += boss_entity["gold"]
+        player_state["stats"]["total_gold_earned"] += boss_entity["gold"]
+        player_state["stats"]["games_won"] += 1
+        apply_exp(boss_entity["exp"])
+        logs.append({"type": "quest", "message": "Siber Kedi'nin saldırısıyla CYBER-DRAGON yenildi! ZAFER!"})
+
+    return {
+        "cat_attack": True, "enemy_id": 9999,
+        "enemy_name": "Cyber-Dragon", "enemy_x": boss_entity["x"],
+        "enemy_y": boss_entity["y"], "damage_dealt": cat_damage,
+        "enemy_killed": boss_entity["hp"] <= 0, "game_won": game_won,
+        "gold_gained": boss_entity["gold"] if game_won else 0,
+        "exp_gained": boss_entity["exp"] if game_won else 0,
+    }
+
+
 def build_status() -> dict:
     base = {
         "class_selected": class_selected,
         "character_class": character_class,
         "grid_size": GRID_SIZE,
+        "grid_width": len(game_map[0]) if game_map else GRID_SIZE,
+        "grid_height": len(game_map) if game_map else GRID_SIZE,
         "floor": current_floor,
         "secret_map": secret_map_index,
+        "theme": "red" if cat_quest.get("in_red_map") else "station",
+        "in_red_map": cat_quest.get("in_red_map", False),
+        "cat_quest": cat_quest,
+        "red_hatch_pos": dict(red_hatch_pos),
+        "can_enter_red_map": is_at_red_hatch(),
+        "can_exit_red_map": is_at_red_exit(),
     }
     if not class_selected:
         return {
@@ -1542,7 +2077,12 @@ def build_status() -> dict:
             "map": [], "fog_matrix": [],
             "enemies": [], "chests": [], "gravestones": [],
             "merchant": {"x": 0, "y": 0, "visible": False},
-            "stairs": {"x": -1, "y": -1},
+            "stairs": {"x": -1, "y": -1}, "stairs_positions": [],
+            "station_rooms": [], "vents": [], "terminals": [], "cage_pos": {"x": -1, "y": -1},
+            "red_key": {"x": -1, "y": -1, "active": False},
+            "cat_state": {"active": False, "rescued": False, "x": -1, "y": -1, "trail": []},
+            "cat_quest": default_cat_quest(), "red_hatch_pos": {"x": -1, "y": -1},
+            "can_enter_red_map": False, "can_exit_red_map": False, "theme": "station", "in_red_map": False,
             "secret_key": {"x": -1, "y": -1, "active": False},
             "secret_door": {"x": -1, "y": -1, "open": False},
             "at_merchant": False, "at_stairs": False,
@@ -1576,7 +2116,19 @@ def build_status() -> dict:
             for stone in gravestones
         ],
         "merchant": get_visible_merchant(),
-        "stairs": dict(stairs_pos),
+        "stairs": dict(stairs_pos), "stairs_positions": [dict(stair) for stair in stairs_positions],
+        "station_rooms": station_rooms,
+        "vents": list(vents),
+        "terminals": list(terminals),
+        "cage_pos": dict(cage_pos),
+        "red_key": dict(red_key),
+        "cat_state": dict(cat_state),
+        "cat_quest": cat_quest,
+        "red_hatch_pos": dict(red_hatch_pos),
+        "theme": "red" if cat_quest.get("in_red_map") else "station",
+        "in_red_map": cat_quest.get("in_red_map", False),
+        "can_enter_red_map": is_at_red_hatch(),
+        "can_exit_red_map": is_at_red_exit(),
         "secret_key": dict(secret_key),
         "secret_door": dict(secret_door),
         "has_secret_key": has_secret_key,
@@ -1630,6 +2182,10 @@ async def get_knight_sheet():
 @app.get("/monters.png")
 async def get_monsters():
     return FileResponse(BASE_DIR / "monters.png")
+
+@app.get("/kedi.png")
+async def get_cat_sprite():
+    return FileResponse(BASE_DIR / "kedi.png", media_type="image/png")
 
 
 def get_username(user_id: Optional[int]) -> Optional[str]:
@@ -1784,7 +2340,10 @@ async def get_map():
             "class_selected": False, "grid_size": GRID_SIZE,
             "map": [], "fog_matrix": [], "enemies": [], "chests": [],
             "merchant": {"x": 0, "y": 0, "visible": False},
-            "stairs": {"x": -1, "y": -1},
+            "stairs": {"x": -1, "y": -1}, "stairs_positions": [],
+            "station_rooms": [], "vents": [], "terminals": [], "cage_pos": {"x": -1, "y": -1},
+            "red_key": {"x": -1, "y": -1, "active": False},
+            "cat_state": {"active": False, "rescued": False, "x": -1, "y": -1, "trail": []},
             "x": 0, "y": 0,
         }
     return {
@@ -1794,9 +2353,58 @@ async def get_map():
         "enemies": get_visible_enemies(),
         "chests": get_visible_chests(),
         "merchant": get_visible_merchant(),
-        "stairs": dict(stairs_pos),
+        "stairs": dict(stairs_pos), "stairs_positions": [dict(stair) for stair in stairs_positions],
+        "station_rooms": list(station_rooms),
+        "vents": list(vents),
+        "terminals": list(terminals),
+        "cage_pos": dict(cage_pos),
+        "red_key": dict(red_key),
+        "cat_state": dict(cat_state),
         "x": player_state["x"], "y": player_state["y"],
     }
+
+
+@app.post("/api/use-vent")
+async def use_vent():
+    require_class_selected()
+    if not vents:
+        raise HTTPException(400, detail="Haritada vent yok")
+
+    current = next((vent for vent in vents if vent["x"] == player_state["x"] and vent["y"] == player_state["y"]), None)
+    if current is None:
+        raise HTTPException(400, detail="Oyuncu vent üzerinde değil")
+
+    ordered = sorted(vents, key=lambda item: item["id"])
+    dest = next((vent for vent in ordered if vent["id"] > current["id"]), ordered[0])
+    if dest["x"] == current["x"] and dest["y"] == current["y"]:
+        dest = ordered[0]
+
+    player_state["x"] = dest["x"]
+    player_state["y"] = dest["y"]
+    update_fog(player_state["x"], player_state["y"])
+
+    logs = [{"type": "info", "message": "💨 Havalandırma ızgarasından diğer odaya süzüldün!"}]
+    return {**build_status(), "success": True, "message": "Vent kullanıldı", "logs": logs}
+
+
+@app.post("/api/use-stairs")
+async def use_stairs():
+    require_class_selected()
+    if cat_quest.get("in_red_map") or not stairs_positions:
+        raise HTTPException(400, detail="Bu haritada kullanılabilir merdiven yok")
+    current_index = next((index for index, stair in enumerate(stairs_positions)
+                          if (stair["x"], stair["y"]) == (player_state["x"], player_state["y"])), None)
+    if current_index is None:
+        raise HTTPException(400, detail="Merdivenin üzerinde değilsin")
+
+    next_index = (current_index + 1) % len(stairs_positions)
+    destination = stairs_positions[next_index]
+    logs = []
+    player_state["x"], player_state["y"] = destination["x"], destination["y"]
+    update_fog(player_state["x"], player_state["y"])
+    logs.append({"type": "info", "message": f"Merdiven {next_index + 1}'e ışınlandın!"})
+    return {**build_status(), "success": True, "message": "Merdiven kullanıldı",
+            "logs": logs, "floor_changed": False}
 
 
 @app.post("/api/select-class")
@@ -1846,13 +2454,14 @@ async def move_player(payload: MoveRequest):
     gravestone_collected = None
     floor_changed = False
     secret_map_changed = False
+    spawner_damage = 0
     blocked = False
 
     dx, dy = DIR_DELTA[payload.direction]
     old_x, old_y = player_state["x"], player_state["y"]
     if not is_in_bounds(old_x, old_y) or game_map[old_y][old_x] == WALL:
-        player_state["x"], player_state["y"] = 0, 0
-        old_x, old_y = 0, 0
+        old_x, old_y = find_safe_spawn(game_map)
+        player_state["x"], player_state["y"] = old_x, old_y
     new_x, new_y = old_x + dx, old_y + dy
 
     if not is_in_bounds(new_x, new_y) or game_map[new_y][new_x] == WALL:
@@ -1881,21 +2490,33 @@ async def move_player(payload: MoveRequest):
             collect_chest(logs)
             gravestone_collected = collect_gravestone(logs)
             collect_secret_key(logs)
+            collect_red_key(logs)
 
         if not game_over and not game_won and not blocked:
             battles += move_enemies(logs)
             if boss_entity and not game_won:
                 battles += move_boss(logs)
+            if cat_quest.get("rescued"):
+                update_cat_follow_history()
+            if cat_state.get("rescued") and not cat_quest.get("rescued"):
+                update_cat_follow()
+
+        if (cat_quest.get("in_red_map") and is_in_bounds(player_state["x"], player_state["y"])
+                and game_map[player_state["y"]][player_state["x"]] == LASER_CAGE):
+            spawner_damage = 1
+            player_state["hp"] = max(0, player_state["hp"] - spawner_damage)
+            logs.append({"type": "combat", "message": "🔥 Spawner'ın üstündesin! -1 HP"})
+            check_game_over("Siber Spawner")
 
         update_fog(player_state["x"], player_state["y"])
-
-        if not game_over and not game_won and is_at_stairs():
-            descend_floor(logs)
-            floor_changed = True
 
         if not game_over and not game_won and has_secret_key and is_at_secret_door():
             enter_secret_map(logs)
             secret_map_changed = True
+
+        cat_battle = cat_attack_boss(logs)
+        if cat_battle:
+            battles.append(cat_battle)
 
         if not battles:
             regen_mp_safe()
@@ -1907,6 +2528,7 @@ async def move_player(payload: MoveRequest):
         **build_status(),
         "logs": logs, "battles": battles,
         "gravestone_collected": gravestone_collected,
+        "spawner_damage": spawner_damage,
         "blocked": blocked, "floor_changed": floor_changed,
         "secret_map_changed": secret_map_changed,
         "combat_occurred": len(battles) > 0,
@@ -2050,7 +2672,7 @@ async def unequip_item(payload: UnequipRequest):
 async def reset_game():
     global class_selected, character_class, game_map, enemies, chests
     global game_over, game_won, pending_level_ups, boss_entity, current_floor, equipment, inventory
-    global secret_map_index, secret_key, secret_door, has_secret_key
+    global secret_map_index, secret_key, secret_door, has_secret_key, cat_quest, red_hatch_pos, cat_state, red_key
     class_selected = False
     character_class = None
     game_map = []
@@ -2065,8 +2687,10 @@ async def reset_game():
     secret_key = {"x": -1, "y": -1, "active": False}
     secret_door = {"x": -1, "y": -1, "open": False}
     has_secret_key = False
-    equipment = {"weapon": None, "armor": None, "accessory": None}
-    inventory = []
+    cat_quest = default_cat_quest()
+    cat_state = {"active": False, "rescued": False, "x": -1, "y": -1, "trail": []}
+    red_key = {"x": -1, "y": -1, "active": False}
+    red_hatch_pos = {"x": -1, "y": -1}
     init_daily_quest()
     return build_status()
 

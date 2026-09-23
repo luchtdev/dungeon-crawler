@@ -180,6 +180,18 @@
     .canvas-frame::after { content: ''; position: absolute; inset: 0; pointer-events: none;
       background: radial-gradient(ellipse at center, transparent 52%, rgba(0,0,0,0.42) 100%); }
     #gameCanvas { display: block; max-width: 100%; image-rendering: pixelated; border-radius: 8px; }
+    .stairs-tooltip { position: absolute; z-index: 5; display: none; pointer-events: auto; cursor: pointer;
+      transform: translate(-50%, -100%); padding: 5px 8px; border: 1px solid #d5dde2;
+      background: rgba(13, 16, 20, 0.95); color: #f1f5f7; box-shadow: 0 0 12px rgba(180,195,205,0.55);
+      font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; white-space: nowrap; }
+    .stairs-tooltip.visible { display: block; }
+    .red-map-actions { position: absolute; inset: 0; z-index: 4; pointer-events: none; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .red-map-actions button { pointer-events: auto; display: none; font: inherit; font-size: 0.62rem; padding: 9px 12px; border: 2px solid currentColor; background: rgba(12, 3, 7, 0.92); color: #ff4058; box-shadow: 0 0 16px currentColor; cursor: pointer; }
+    .red-map-actions button.is-visible { display: inline-flex; }
+    .red-map-actions .cyber-btn-gold { color: #ffd24d; }
+    .red-map-actions .cyber-btn-cyan { color: #54e8ff; }
+    .canvas-frame.red-theme { border-color: rgba(255, 38, 58, 0.72); box-shadow: 0 0 30px rgba(255, 0, 40, 0.28), inset 0 0 34px rgba(80, 0, 8, 0.72); }
+    .canvas-frame.red-theme::after { background: radial-gradient(ellipse at center, rgba(255, 0, 40, 0.08), rgba(20, 0, 5, 0.48)); }
     .minimap-panel {
       width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
       background: rgba(13,18,32,0.85); border: 1px solid rgba(57,255,20,0.22); border-radius: 10px;
@@ -203,6 +215,9 @@
     .canvas-frame.dizzy-effect {
       animation: poisonDizzy 3.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
     }
+    .canvas-frame.burn-effect {
+      animation: burnPulse 0.48s ease-out;
+    }
     @keyframes screenShake {
       0% { transform: translate(0,0); } 15% { transform: translate(-4px,-3px); }
       30% { transform: translate(4px,3px); } 50% { transform: translate(-3px,4px); }
@@ -214,6 +229,11 @@
       40% { transform: scale(1.12) rotate(-2deg); filter: hue-rotate(110deg) saturate(2.8); }
       70% { transform: scale(1.06) rotate(1deg); filter: hue-rotate(50deg) saturate(1.6); }
       100% { transform: scale(1) rotate(0deg); filter: none; }
+    }
+    @keyframes burnPulse {
+      0% { filter: brightness(1) saturate(1); box-shadow: 0 0 28px rgba(0,240,255,0.12), inset 0 0 30px rgba(0,0,0,0.5); }
+      35% { filter: brightness(1.45) saturate(1.8); box-shadow: 0 0 34px rgba(255,70,25,0.7), inset 0 0 30px rgba(255,30,0,0.3); }
+      100% { filter: brightness(1) saturate(1); box-shadow: 0 0 28px rgba(0,240,255,0.12), inset 0 0 30px rgba(0,0,0,0.5); }
     }
     .log-section { position: relative; z-index: 1; flex-shrink: 0; align-self: center; width: calc(100% - 24px); max-width: 600px; margin: 0 auto 10px;
       border: 3px solid var(--panel-border); background: var(--bg-panel); overflow: hidden; box-shadow: 0 0 15px rgba(255, 0, 85, 0.3); }
@@ -255,6 +275,41 @@
       flex: 0 0 auto; width: auto; min-width: 0; display: flex; align-items: center; justify-content: center;
       margin: 0; padding: 6px; border: 2px solid var(--panel-border); background: #12131a;
       box-shadow: 0 0 10px rgba(255, 0, 85, 0.2); position: static; right: auto; bottom: auto; z-index: auto;
+    }
+    .room-banner {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      padding: 7px 14px;
+      border: 1px solid rgba(0,240,255,0.45);
+      border-radius: 999px;
+      background: rgba(8,16,24,0.8);
+      color: var(--neon-cyan);
+      font-size: 0.62rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      box-shadow: 0 0 18px rgba(0,240,255,0.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      white-space: nowrap;
+    }
+    .room-banner.visible {
+      opacity: 1;
+    }
+    .cyber-btn-cyan {
+      border: 1px solid rgba(0,240,255,0.55);
+      background: rgba(0,240,255,0.12);
+      color: var(--neon-cyan);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.58rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 0 16px rgba(0,240,255,0.18);
     }
     .controls-section #minimapCanvas {
       width: 72px; height: 72px; border-radius: 0; border: 2px solid var(--panel-border); background: rgba(0,0,0,0.25);
@@ -1221,8 +1276,15 @@
       </div>
     </section>
     <section class="map-section" id="mapSection">
+      <div id="roomBanner" class="room-banner" aria-live="polite"></div>
       <div class="canvas-frame" id="canvasFrame">
         <canvas id="gameCanvas"></canvas>
+        <div class="stairs-tooltip" id="stairsTooltip">IŞINLAN</div>
+        <div class="red-map-actions" aria-live="polite">
+          <button type="button" id="btn-enter-red" class="cyber-btn-red">🔻 AŞAĞI İN</button>
+          <button type="button" id="btn-unlock-cat" class="cyber-btn-gold">🔓 KİLİDİ AÇ</button>
+          <button type="button" id="btn-exit-red" class="cyber-btn-cyan">🔺 YUKARI ÇIK</button>
+        </div>
       </div>
     </section>
     <section class="log-section">
@@ -1237,6 +1299,7 @@
         <button type="button" class="action-btn status" id="statusBtn">
           <span class="action-icon action-panel-icon status-action-icon" aria-hidden="true"></span>Durum
         </button>
+        <button type="button" id="btn-vent" class="cyber-btn-cyan" style="display:none;">💨 VENT'E GİR</button>
       </div>
       <div class="dpad-row">
         <div class="dpad" id="dpad">
@@ -1421,7 +1484,7 @@
     };
     function apiUrl(path) { return API_BASE + path; }
     function assetUrl(path) { return apiUrl(path); }
-    const TILE = 0, WALL = 1, STAIRS = 2, SECRET_DOOR = 3;
+    const TILE = 0, WALL = 1, STAIRS = 2, SECRET_DOOR = 3, VENT = 4, TERMINAL = 5, LASER_CAGE = 6, EXIT_AIRLOCK = 7;
     const FOG_DARK = 0, FOG_VISIBLE = 1, FOG_FOGGY = 2;
     const FIREBALL_COST = 20, FIREBALL_RANGE = 3;
     const MAX_FLOOR = 100;
@@ -1438,7 +1501,6 @@
       orc:'#44bb44', orcBg:'#0a2a0a',
       boss:'#ff6600', bossBg:'#1a0500',
       merchant:'#39ff14', merchantBg:'#0a2a0a',
-      stairs:'#aa66ff',
       gridLine:'rgba(0,240,255,0.05)',
       fogOverlay:'rgba(0,0,0,0.58)',
     };
@@ -1611,6 +1673,11 @@
     // DOM refs
     const canvas = document.getElementById('gameCanvas');
     const minimapCanvas = document.getElementById('minimapCanvas');
+    const ventBtn = document.getElementById('btn-vent');
+    const enterRedBtn = document.getElementById('btn-enter-red');
+    const unlockCatBtn = document.getElementById('btn-unlock-cat');
+    const exitRedBtn = document.getElementById('btn-exit-red');
+    const roomBanner = document.getElementById('roomBanner');
     const ctx = canvas.getContext('2d');
     const minimapCtx = minimapCanvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
@@ -1658,6 +1725,7 @@
     const achievementList = document.getElementById('achievementList');
     const floorNotif = document.getElementById('floorNotif');
     const canvasFrame = document.getElementById('canvasFrame');
+    const stairsTooltip = document.getElementById('stairsTooltip');
     const minimapPanel = document.querySelector('.minimap-panel');
 
     let minimapExpanded = false;
@@ -1694,9 +1762,21 @@
     let map = [], fogMatrix = [], enemies = [], chests = [], gravestones = [];
     let merchant = { x:0, y:0, visible:false };
     let stairs = { x:-1, y:-1 };
+    let stairsPositions = [];
+    let stationRooms = [];
+    let vents = [];
+    let terminals = [];
+    let cagePos = { x:-1, y:-1 };
+    let redKey = { x:-1, y:-1, active:false };
+    let catState = { active:false, rescued:false, x:-1, y:-1, trail:[] };
+    let catQuest = { rescued:false, in_red_map:false, has_red_key:false, spawner_open:false, cat_x:-1, cat_y:-1, history:[] };
+    let redMapData = { hatch_pos:{x:-1,y:-1}, spawner_pos:{x:-1,y:-1}, red_key:{x:-1,y:-1,active:false} };
+    let redHatchPos = { x:-1, y:-1 };
+    let inRedMap = false, mapTheme = 'station';
     let secretKey = { x:-1, y:-1, active:false };
     let secretDoor = { x:-1, y:-1, open:false };
     let hasSecretKey = false, secretMapIndex = 1;
+    let roomBannerTimer = null;
     let boss = null;
     let dailyQuest = { name:'', target:1, progress:0, reward:100, completed:false };
     let soundEnabled = true;
@@ -1709,7 +1789,7 @@
     let playerFacing = 1;
     let isBuying = false, isCasting = false;
     let classSelected = false, initComplete = false, isSelectingClass = false;
-    let characterClass = '', gridSize = GRID_SIZE;
+    let characterClass = '', gridSize = GRID_SIZE, gridWidth = GRID_SIZE, gridHeight = GRID_SIZE;
     let atMerchant = false, loopStarted = false;
     let currentFloor = 1;
     let lastMoveAt = 0;
@@ -1766,6 +1846,8 @@
       if (kind === 'boss') playTone(90, 220, 0.06, 'sawtooth');
       if (kind === 'win') playTone(660, 180, 0.05, 'sine');
       if (kind === 'menu') playTone(350, 90, 0.03, 'triangle');
+      if (kind === 'hatch') { playTone(110, 260, 0.05, 'sawtooth'); setTimeout(function(){ playTone(190, 180, 0.04, 'square'); }, 110); }
+      if (kind === 'cat-rescue') { playTone(520, 130, 0.045, 'sine'); setTimeout(function(){ playTone(760, 180, 0.05, 'sine'); }, 150); }
     }
 
     function timeStr() {
@@ -1832,6 +1914,18 @@
       }
     }
 
+    function spawnBurnParticles(wx, wy) {
+      var colors = ['#ff3b18', '#ff7a1a', '#ffd447'];
+      for (var i = 0; i < 12; i++) {
+        var angle = Math.PI + (Math.random() - 0.5) * 1.5;
+        var speed = 25 + Math.random() * 65;
+        addParticle(wx + (Math.random() - 0.5) * cellSize * 0.6,
+          wy + (Math.random() - 0.5) * cellSize * 0.35,
+          Math.cos(angle) * speed, -35 - Math.random() * 70,
+          colors[i % colors.length], 2 + Math.random() * 2, 320 + Math.random() * 260);
+      }
+    }
+
     function spawnGoldParticles(wx, wy) {
       var count = 6 + Math.floor(Math.random() * 3);
       for (var i = 0; i < count; i++) {
@@ -1875,6 +1969,63 @@
         questPanel.classList.remove('completed');
         done.style.display = 'none';
       }
+    }
+
+    function updateVentButton() {
+      if (!ventBtn) return;
+      var onVent = !!map.length && map[player.y] && map[player.y][player.x] === VENT;
+      ventBtn.style.display = onVent ? 'inline-flex' : 'none';
+    }
+
+    function updateUnlockCatButton() {
+      if (!unlockCatBtn) return;
+      var spawner = redMapData.spawner_pos || {};
+      var distance = Math.hypot(player.x - (spawner.x || -99), player.y - (spawner.y || -99));
+      var canUnlock = !!inRedMap && !!catQuest.has_red_key && !catQuest.rescued && distance <= 1.5;
+      unlockCatBtn.classList.toggle('is-visible', canUnlock);
+      unlockCatBtn.disabled = !canUnlock;
+    }
+
+    function updateRedMapButtons(data) {
+      if (data) {
+        inRedMap = !!data.in_red_map;
+        mapTheme = data.theme || (inRedMap ? 'red' : 'station');
+        redHatchPos = data.red_hatch_pos || redHatchPos;
+        catQuest = data.cat_quest || catQuest;
+        redMapData = catQuest.red_map_data || redMapData;
+      }
+      var canEnter = !inRedMap && !!(data ? data.can_enter_red_map : false);
+      var canExit = inRedMap && !!(data ? data.can_exit_red_map : false);
+      if (enterRedBtn) enterRedBtn.classList.toggle('is-visible', canEnter);
+      if (exitRedBtn) exitRedBtn.classList.toggle('is-visible', canExit);
+      if (canvasFrame) canvasFrame.classList.toggle('red-theme', inRedMap);
+      updateUnlockCatButton();
+    }
+
+    function showRoomBanner(name) {
+      if (!roomBanner) return;
+      if (!name) {
+        roomBanner.classList.remove('visible');
+        return;
+      }
+      roomBanner.textContent = '⚡ ' + name;
+      roomBanner.classList.add('visible');
+      clearTimeout(roomBannerTimer);
+      roomBannerTimer = setTimeout(function() {
+        roomBanner.classList.remove('visible');
+      }, 2000);
+    }
+
+    function updateRoomBanner() {
+      if (!roomBanner || !inRedMap || !redMapData.rooms || !redMapData.rooms.length) {
+        if (roomBanner) roomBanner.classList.remove('visible');
+        return;
+      }
+      var current = redMapData.rooms.find(function(room) {
+        return player.x >= room.x1 && player.x <= room.x2 && player.y >= room.y1 && player.y <= room.y2;
+      });
+      if (current) showRoomBanner(current.name.toUpperCase());
+      else roomBanner.classList.remove('visible');
     }
 
     function updateHudPanels() {
@@ -1998,6 +2149,9 @@
       if (data.equipment) equipment = data.equipment;
       achievements = data.achievements || [];
       if (data.floor) currentFloor = data.floor;
+      if (data.cat_quest) catQuest = data.cat_quest;
+      if (data.in_red_map != null) inRedMap = !!data.in_red_map;
+      if (data.theme) mapTheme = data.theme;
       classSelected = !!data.class_selected;
       gameOver = !!data.game_over;
       gameWon = !!data.game_won;
@@ -2044,7 +2198,7 @@
       if (!delta) return;
       var nextX = player.x + delta[0];
       var nextY = player.y + delta[1];
-      if (nextX < 0 || nextY < 0 || nextX >= gridSize || nextY >= gridSize) return;
+      if (nextX < 0 || nextY < 0 || nextX >= gridWidth || nextY >= gridHeight) return;
       if (map[nextY][nextX] === 1 || map[nextY][nextX] === 3) return;
       if (enemies.some(function(enemy) { return enemy.x === nextX && enemy.y === nextY; })) return;
       player.x = nextX;
@@ -2059,6 +2213,8 @@
 
     function applyMapState(data) {
       if (data.grid_size) gridSize = data.grid_size;
+      if (data.grid_width) gridWidth = data.grid_width;
+      if (data.grid_height) gridHeight = data.grid_height;
       if (data.map && data.map.length) map = data.map;
       if (data.fog_matrix && data.fog_matrix.length) fogMatrix = data.fog_matrix;
       // Merge enemies to preserve render positions for smooth interpolation
@@ -2084,6 +2240,20 @@
       gravestones = data.gravestones || [];
       if (data.merchant) merchant = data.merchant;
       if (data.stairs) stairs = data.stairs;
+      if (data.stairs_positions) stairsPositions = data.stairs_positions;
+      if (data.station_rooms) stationRooms = data.station_rooms;
+      if (data.vents) vents = data.vents;
+      if (data.terminals) terminals = data.terminals;
+      if (data.cage_pos) cagePos = data.cage_pos;
+      if (data.red_key) redKey = data.red_key;
+      if (data.cat_state) catState = data.cat_state;
+      if (data.cat_quest) {
+        catQuest = data.cat_quest;
+        redMapData = catQuest.red_map_data || redMapData;
+      }
+      if (data.red_hatch_pos) redHatchPos = data.red_hatch_pos;
+      if (data.in_red_map != null) inRedMap = !!data.in_red_map;
+      if (data.theme) mapTheme = data.theme;
       if (data.secret_key) secretKey = data.secret_key;
       if (data.secret_door) secretDoor = data.secret_door;
       boss = data.boss || null;
@@ -2098,7 +2268,34 @@
       if (data.x != null) player.x = data.x;
       if (data.y != null) player.y = data.y;
       ensurePlayerRender(data);
+      updatePlayerStairsTooltip();
+      updateVentButton();
+      updateRedMapButtons(data);
+      updateRoomBanner();
       updateUI();
+    }
+
+    function drawCyberCat(sx, sy) {
+      var px = sx * cellSize, py = sy * cellSize;
+      var bob = Math.sin(Date.now() / 200) * 1.5;
+      var catFacing = player.x > catState.x ? -1 : 1;
+      ctx.save();
+      ctx.translate(px + cellSize / 2, py + bob);
+      ctx.scale(catFacing, 1);
+      if (catSprite.complete && catSprite.naturalWidth) {
+        ctx.imageSmoothingEnabled = false;
+        ctx.shadowColor = '#ff9d5c';
+        ctx.shadowBlur = Math.max(2, cellSize * 0.18);
+        ctx.drawImage(catSprite, -cellSize / 2, 0, cellSize, cellSize);
+        ctx.shadowBlur = 0;
+      } else {
+        drawSmallPixelCharacter(-cellSize / 2, 0, {
+          size: 8,
+          matrix: ['..OO..','..OO..','OOOOOO','OOWWOO','OOOOOO','.O..O.','O....O','........'],
+          palette: { O:'#ff9d5c', W:'#1b2430' }
+        }, 'rgba(255,120,70,0.32)');
+      }
+      ctx.restore();
     }
 
     function applyState(data) {
@@ -2109,11 +2306,12 @@
     // ── Canvas helpers ────────────────────────────────────────────────────────
     function getCamera() {
       var half = Math.floor(VIEW_SIZE/2);
-      var maxCamera = Math.max(0, gridSize - VIEW_SIZE);
+      var maxCameraX = Math.max(0, gridWidth - VIEW_SIZE);
+      var maxCameraY = Math.max(0, gridHeight - VIEW_SIZE);
       if (!cameraState) {
         cameraState = {
-          x: Math.max(0, Math.min(player.x - half, maxCamera)),
-          y: Math.max(0, Math.min(player.y - half, maxCamera)),
+          x: Math.max(0, Math.min(player.x - half, maxCameraX)),
+          y: Math.max(0, Math.min(player.y - half, maxCameraY)),
         };
       }
 
@@ -2124,17 +2322,84 @@
       var minY = cameraState.y + margin;
       var maxY = cameraState.y + VIEW_SIZE - 1 - margin;
       if (player.x < minX) cameraState.x = Math.max(0, player.x - margin);
-      if (player.x > maxX) cameraState.x = Math.min(maxCamera, player.x - VIEW_SIZE + 1 + margin);
+      if (player.x > maxX) cameraState.x = Math.min(maxCameraX, player.x - VIEW_SIZE + 1 + margin);
       if (player.y < minY) cameraState.y = Math.max(0, player.y - margin);
-      if (player.y > maxY) cameraState.y = Math.min(maxCamera, player.y - VIEW_SIZE + 1 + margin);
+      if (player.y > maxY) cameraState.y = Math.min(maxCameraY, player.y - VIEW_SIZE + 1 + margin);
 
       return { x: cameraState.x, y: cameraState.y };
     }
     function wts(wx, wy, cam) { return { x:(wx-cam.x)*cellSize, y:(wy-cam.y)*cellSize }; }
     function inViewport(wx, wy, cam) {
-      return wx >= cam.x && wx < cam.x+VIEW_SIZE && wy >= cam.y && wy < cam.y+VIEW_SIZE;
+      return wx >= cam.x && wx < cam.x+VIEW_SIZE && wy >= cam.y && wy < cam.y+VIEW_SIZE && wx < gridWidth && wy < gridHeight;
     }
-    function getFogAt(x, y) { return fogMatrix.length ? fogMatrix[y][x] : FOG_VISIBLE; }
+    function hoveredStair(event) {
+      if (!stairsPositions.length || !map.length) return null;
+      var rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return null;
+      var localX = (event.clientX - rect.left) * canvas.width / rect.width;
+      var localY = (event.clientY - rect.top) * canvas.height / rect.height;
+      var camera = getCamera();
+      var worldX = camera.x + Math.floor(localX / cellSize);
+      var worldY = camera.y + Math.floor(localY / cellSize);
+      return stairsPositions.find(function(stair) { return stair.x === worldX && stair.y === worldY; }) || null;
+    }
+    function getPlayerStair() {
+      var stair = stairsPositions.find(function(item) {
+        return item.x === player.x && item.y === player.y;
+      });
+      if (stair) return stair;
+      if (!inRedMap && secretMapIndex === 3 && redHatchPos.x === player.x && redHatchPos.y === player.y) {
+        return redHatchPos;
+      }
+      if (inRedMap && redMapData.hatch_pos && redMapData.hatch_pos.x === player.x &&
+          redMapData.hatch_pos.y === player.y) {
+        return redMapData.hatch_pos;
+      }
+      return null;
+    }
+    function updatePlayerStairsTooltip() {
+      var stair = getPlayerStair();
+      if (!stair) {
+        stairsTooltip.classList.remove('visible');
+        return;
+      }
+      var camera = getCamera();
+      var screen = wts(stair.x, stair.y, camera);
+      var canvasRect = canvas.getBoundingClientRect();
+      var frameRect = canvasFrame.getBoundingClientRect();
+      stairsTooltip.style.left = (canvasRect.left - frameRect.left +
+        (screen.x + cellSize / 2) * canvasRect.width / canvas.width) + 'px';
+      stairsTooltip.style.top = (canvasRect.top - frameRect.top +
+        screen.y * canvasRect.height / canvas.height - 6) + 'px';
+      stairsTooltip.classList.add('visible');
+    }
+    function isAtStairs() {
+      return !!getPlayerStair();
+    }
+    async function useStairs() {
+      if (!isAtStairs() || gameOver || gameWon) return;
+      if (!inRedMap && secretMapIndex === 3 && redHatchPos.x === player.x && redHatchPos.y === player.y) {
+        callRedMapAction('/api/enter-red-map', 'hatch', 'Kırmızı odaya inilemedi');
+        return;
+      }
+      if (inRedMap) {
+        callRedMapAction('/api/exit-red-map', 'hatch', 'Kırmızı odadan çıkılamadı');
+        return;
+      }
+      try {
+        var response = await fetch(apiUrl('/api/use-stairs'), { method:'POST' });
+        var data = await response.json().catch(function() { return {}; });
+        if (!response.ok) throw new Error(data.detail || 'Merdiven kullanılamadı');
+        applyState(data);
+        if (data.logs) processLogs(data.logs);
+        if (data.floor_changed) showFloorNotif(currentFloor, currentFloor >= MAX_FLOOR);
+        playActionSound('hatch');
+      } catch (error) {
+        addLog((error && error.message) || 'Merdiven kullanılamadı', 'info');
+      }
+    }
+    stairsTooltip.addEventListener('click', useStairs);
+    function getFogAt(x, y) { return fogMatrix.length && fogMatrix[y] && fogMatrix[y][x] != null ? fogMatrix[y][x] : FOG_DARK; }
     function isVisible(x, y) { return getFogAt(x,y) === FOG_VISIBLE; }
 
     function resizeCanvas() {
@@ -2152,9 +2417,127 @@
     }
 
     // ── Tile drawing ─────────────────────────────────────────────────────────
-    function drawTile(sx, sy, t) {
+    function drawVent(sx, sy) {
+      var px = sx * cellSize, py = sy * cellSize;
+      ctx.fillStyle = '#101a24';
+      ctx.fillRect(px, py, cellSize, cellSize);
+      ctx.strokeStyle = '#5fe3ff';
+      ctx.lineWidth = Math.max(1, cellSize * 0.08);
+      for (var i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(px + 2, py + cellSize * (0.3 + i * 0.22));
+        ctx.lineTo(px + cellSize - 2, py + cellSize * (0.3 + i * 0.22));
+        ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(64, 255, 188, 0.22)';
+      ctx.fillRect(px + cellSize * 0.15, py + cellSize * 0.15, cellSize * 0.7, cellSize * 0.7);
+      ctx.strokeStyle = 'rgba(64,255,188,0.7)';
+      ctx.strokeRect(px + cellSize * 0.2, py + cellSize * 0.2, cellSize * 0.6, cellSize * 0.6);
+    }
+
+    function drawTerminal(sx, sy) {
+      var px = sx * cellSize, py = sy * cellSize;
+      ctx.fillStyle = '#101920';
+      ctx.fillRect(px + cellSize * 0.18, py + cellSize * 0.2, cellSize * 0.64, cellSize * 0.48);
+      ctx.fillStyle = '#1affb5';
+      ctx.globalAlpha = 0.55 + 0.2 * Math.sin(Date.now() / 200);
+      ctx.fillRect(px + cellSize * 0.24, py + cellSize * 0.26, cellSize * 0.52, cellSize * 0.3);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#1a3130';
+      ctx.fillRect(px + cellSize * 0.22, py + cellSize * 0.72, cellSize * 0.56, cellSize * 0.12);
+      ctx.fillStyle = '#8ef6d4';
+      ctx.fillRect(px + cellSize * 0.27, py + cellSize * 0.74, cellSize * 0.46, cellSize * 0.07);
+    }
+
+    function drawLaserCage(sx, sy) {
+      var px = sx * cellSize, py = sy * cellSize;
+      ctx.strokeStyle = 'rgba(255, 60, 60, 0.9)';
+      ctx.lineWidth = Math.max(2, cellSize * 0.12);
+      ctx.beginPath();
+      ctx.moveTo(px + cellSize * 0.18, py + cellSize * 0.18);
+      ctx.lineTo(px + cellSize * 0.82, py + cellSize * 0.18);
+      ctx.moveTo(px + cellSize * 0.18, py + cellSize * 0.82);
+      ctx.lineTo(px + cellSize * 0.82, py + cellSize * 0.82);
+      ctx.moveTo(px + cellSize * 0.18, py + cellSize * 0.18);
+      ctx.lineTo(px + cellSize * 0.18, py + cellSize * 0.82);
+      ctx.moveTo(px + cellSize * 0.82, py + cellSize * 0.18);
+      ctx.lineTo(px + cellSize * 0.82, py + cellSize * 0.82);
+      ctx.stroke();
+      ctx.fillStyle = '#ff3c5d';
+      ctx.globalAlpha = 0.7 + 0.2 * Math.sin(Date.now() / 120);
+      ctx.fillRect(px + cellSize * 0.31, py + cellSize * 0.31, cellSize * 0.38, cellSize * 0.38);
+      ctx.globalAlpha = 1;
+    }
+
+    function drawRedSpawner(sx, sy) {
+      var px = sx * cellSize, py = sy * cellSize;
+      var pulse = 0.5 + 0.5 * Math.sin(Date.now() / 90);
+      ctx.fillStyle = '#351016';
+      ctx.fillRect(px + cellSize * 0.12, py + cellSize * 0.68, cellSize * 0.76, cellSize * 0.2);
+      ctx.strokeStyle = catQuest.spawner_open ? '#6d7785' : '#ff203f';
+      ctx.lineWidth = Math.max(2, cellSize * (catQuest.spawner_open ? 0.05 : 0.08 + pulse * 0.04));
+      ctx.strokeRect(px + cellSize * 0.16, py + cellSize * 0.65, cellSize * 0.68, cellSize * 0.24);
+      if (!catQuest.spawner_open) {
+        ctx.shadowColor = '#ff153d'; ctx.shadowBlur = 8 + pulse * 9;
+        ctx.strokeStyle = 'rgba(255,35,65,' + (0.7 + pulse * 0.3) + ')';
+        [[0.2,0.2],[0.8,0.2],[0.2,0.8],[0.8,0.8]].forEach(function(point) {
+          ctx.beginPath(); ctx.moveTo(px + cellSize * point[0], py + cellSize * 0.7); ctx.lineTo(px + cellSize * point[0], py + cellSize * 0.12); ctx.stroke();
+        });
+        ctx.setLineDash([cellSize * 0.12, cellSize * 0.1]);
+        ctx.lineDashOffset = -Date.now() / 35;
+        ctx.strokeStyle = 'rgba(255,120,130,0.75)';
+        ctx.beginPath(); ctx.moveTo(px + cellSize * 0.2, py + cellSize * (0.25 + pulse * 0.08)); ctx.lineTo(px + cellSize * 0.8, py + cellSize * (0.25 + pulse * 0.08)); ctx.stroke();
+        ctx.setLineDash([]); ctx.shadowBlur = 0;
+      } else {
+        ctx.fillStyle = 'rgba(255,190,70,' + (0.35 + pulse * 0.35) + ')';
+        ctx.fillRect(px + cellSize * 0.35, py + cellSize * 0.58, cellSize * 0.08, cellSize * 0.08);
+        ctx.fillRect(px + cellSize * 0.65, py + cellSize * 0.48, cellSize * 0.06, cellSize * 0.06);
+      }
+    }
+
+    function drawExitAirlock(sx, sy) {
+      var px = sx * cellSize, py = sy * cellSize;
+      ctx.fillStyle = '#0a1420';
+      ctx.fillRect(px + cellSize * 0.14, py + cellSize * 0.12, cellSize * 0.72, cellSize * 0.76);
+      ctx.strokeStyle = '#7ee7ff';
+      ctx.lineWidth = Math.max(1, cellSize * 0.08);
+      ctx.strokeRect(px + cellSize * 0.18, py + cellSize * 0.16, cellSize * 0.64, cellSize * 0.68);
+      ctx.fillStyle = '#7ee7ff';
+      ctx.fillRect(px + cellSize * 0.33, py + cellSize * 0.35, cellSize * 0.34, cellSize * 0.18);
+    }
+
+    function drawRedPortal(sx, sy) {
+      var px = sx * cellSize, py = sy * cellSize;
+      var pulse = 0.5 + 0.5 * Math.sin(Date.now() / 220);
+      var centerX = px + cellSize / 2, centerY = py + cellSize / 2;
+      ctx.save();
+      ctx.fillStyle = '#260b12';
+      ctx.fillRect(px, py, cellSize, cellSize);
+      ctx.shadowColor = '#ff304b';
+      ctx.shadowBlur = 8 + pulse * 10;
+      ctx.strokeStyle = 'rgba(255,48,75,' + (0.55 + pulse * 0.35) + ')';
+      ctx.lineWidth = Math.max(1.5, cellSize * 0.07);
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY, cellSize * (0.28 + pulse * 0.06), cellSize * 0.4, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255,35,62,' + (0.22 + pulse * 0.2) + ')';
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY, cellSize * 0.2, cellSize * 0.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffd0d6';
+      ctx.lineWidth = Math.max(1, cellSize * 0.045);
+      ctx.beginPath();
+      ctx.moveTo(centerX - cellSize * 0.2, py + cellSize * 0.82);
+      ctx.lineTo(centerX + cellSize * 0.2, py + cellSize * 0.82);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawTile(sx, sy, t, wx, wy) {
       var px = sx*cellSize, py = sy*cellSize;
       var theme = MAP_THEMES[Math.max(0, Math.min(MAP_THEMES.length-1, secretMapIndex-1))];
+      if (inRedMap) theme = { wallMid:'#420d14', wallTop:'#681722', wallBottom:'#26070b', floorA:'#200508', floorB:'#2b080d', floorDark:'#140205', line:'rgba(255,55,70,0.22)' };
       if (t === WALL) {
         ctx.fillStyle = theme.wallMid;
         ctx.fillRect(px, py, cellSize, cellSize);
@@ -2181,21 +2564,49 @@
         ctx.strokeRect(px+cellSize*0.22, py+cellSize*0.16, cellSize*0.56, cellSize*0.7);
         ctx.fillStyle = secretDoor.open ? '#ffe28a' : '#ff6688';
         ctx.beginPath(); ctx.arc(px+cellSize*0.62, py+cellSize*0.52, Math.max(1.5, cellSize*0.07), 0, Math.PI*2); ctx.fill();
+      } else if (t === VENT) {
+        drawVent(sx, sy);
+      } else if (t === TERMINAL) {
+        drawTerminal(sx, sy);
+      } else if (t === LASER_CAGE) {
+        if (inRedMap) drawRedSpawner(sx, sy); else drawLaserCage(sx, sy);
+      } else if (t === EXIT_AIRLOCK) {
+        drawExitAirlock(sx, sy);
       } else if (t === STAIRS) {
-        ctx.fillStyle = '#0b0d1d';
+        var redPortalPosition = inRedMap ? redMapData.hatch_pos : redHatchPos;
+        if (secretMapIndex === 3 && redPortalPosition && redPortalPosition.x === wx && redPortalPosition.y === wy) {
+          drawRedPortal(sx, sy);
+        } else {
+        var stairPulse = 0.5 + 0.5 * Math.sin(Date.now() / 260);
+        ctx.fillStyle = '#17191d';
         ctx.fillRect(px, py, cellSize, cellSize);
-        ctx.strokeStyle = 'rgba(170,102,255,0.35)';
+        ctx.strokeStyle = '#4b5158';
+        ctx.lineWidth = Math.max(1, cellSize * 0.06);
         ctx.strokeRect(px+1.5, py+1.5, cellSize-3, cellSize-3);
-        ctx.fillStyle = COLORS.stairs;
-        ctx.globalAlpha = 0.35 + 0.15*Math.sin(Date.now()/400);
-        ctx.fillRect(px+3, py+3, cellSize-6, cellSize-6);
-        ctx.globalAlpha = 1;
-        ctx.font = Math.floor(cellSize*0.55)+'px sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillStyle = COLORS.stairs;
-        ctx.shadowColor = COLORS.stairs; ctx.shadowBlur = 8;
-        ctx.fillText('\u25BC', px+cellSize/2, py+cellSize/2);
+        ctx.strokeStyle = '#aeb7bf';
+        ctx.lineWidth = Math.max(2, cellSize * 0.11);
+        ctx.lineCap = 'square';
+        ctx.shadowColor = 'rgba(210,225,235,' + (0.18 + stairPulse * 0.3) + ')';
+        ctx.shadowBlur = 2 + stairPulse * 5;
+        ctx.beginPath();
+        ctx.moveTo(px + cellSize * 0.22, py + cellSize * 0.82);
+        ctx.lineTo(px + cellSize * 0.22, py + cellSize * 0.2);
+        ctx.moveTo(px + cellSize * 0.78, py + cellSize * 0.82);
+        ctx.lineTo(px + cellSize * 0.78, py + cellSize * 0.2);
+        ctx.stroke();
         ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#d5dde2';
+        ctx.lineWidth = Math.max(2, cellSize * 0.1);
+        ctx.beginPath();
+        [0.72, 0.53, 0.34].forEach(function(stepY, stepIndex) {
+          ctx.globalAlpha = 0.72 + 0.28 * Math.max(0, Math.sin(Date.now() / 300 - stepIndex * 0.8));
+          ctx.moveTo(px + cellSize * 0.18, py + cellSize * stepY);
+          ctx.lineTo(px + cellSize * 0.82, py + cellSize * stepY);
+        });
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.lineCap = 'butt';
+        }
       } else {
         ctx.fillStyle = (sx+sy)%2 ? theme.floorA : theme.floorB;
         ctx.fillRect(px, py, cellSize, cellSize);
@@ -2357,6 +2768,9 @@
 
     var monsterSheet = new Image();
     monsterSheet.src = assetUrl('/monters.png');
+    var catSprite = new Image();
+    catSprite.onload = function() { draw(); };
+    catSprite.src = assetUrl('/kedi.png');
 
     function drawEnemy(sx, sy, e) {
       var px = sx, py = sy;
@@ -2538,17 +2952,6 @@
       drawKnightSheet(px, py);
       ctx.restore();
     }
-    function drawMinimapStairs(x, y, size) {
-      var centerX = x + size / 2;
-      var centerY = y + size / 2;
-      minimapCtx.fillStyle = '#a66cff';
-      minimapCtx.beginPath();
-      minimapCtx.arc(centerX, centerY, Math.max(2, size * 0.34), 0, Math.PI * 2);
-      minimapCtx.fill();
-      minimapCtx.strokeStyle = '#eadbff';
-      minimapCtx.lineWidth = Math.max(1, size * 0.08);
-      minimapCtx.stroke();
-    }
     function drawMinimapSecretDoor(x, y, size, isOpen) {
       var centerX = x + size / 2;
       var centerY = y + size / 2;
@@ -2559,6 +2962,24 @@
       minimapCtx.strokeStyle = '#ffd1d8';
       minimapCtx.lineWidth = Math.max(1, size * 0.08);
       minimapCtx.stroke();
+    }
+    function drawMinimapRedHatch(x, y, size) {
+      var centerX = x + size / 2;
+      var centerY = y + size / 2;
+      var pulse = 0.55 + 0.45 * Math.sin(Date.now() / 220);
+      minimapCtx.save();
+      minimapCtx.fillStyle = 'rgba(255,35,62,' + (0.18 + pulse * 0.22) + ')';
+      minimapCtx.beginPath();
+      minimapCtx.arc(centerX, centerY, Math.max(2, size * (0.42 + pulse * 0.08)), 0, Math.PI * 2);
+      minimapCtx.fill();
+      minimapCtx.fillStyle = '#ff304b';
+      minimapCtx.beginPath();
+      minimapCtx.arc(centerX, centerY, Math.max(2, size * 0.27), 0, Math.PI * 2);
+      minimapCtx.fill();
+      minimapCtx.strokeStyle = '#ffd0d6';
+      minimapCtx.lineWidth = Math.max(1, size * 0.08);
+      minimapCtx.stroke();
+      minimapCtx.restore();
     }
     function drawMinimapMerchant(x, y, size) {
       var centerX = x + size / 2;
@@ -2581,6 +3002,30 @@
       minimapCtx.strokeStyle = '#fff9b0';
       minimapCtx.lineWidth = Math.max(1, size * 0.08);
       minimapCtx.stroke();
+    }
+    function drawMinimapVent(x, y, size) {
+      var px = x + size * 0.25, py = y + size * 0.25;
+      minimapCtx.fillStyle = '#4fe6ff';
+      minimapCtx.beginPath();
+      minimapCtx.moveTo(px + size * 0.5, py);
+      minimapCtx.lineTo(px + size, py + size * 0.5);
+      minimapCtx.lineTo(px, py + size * 0.5);
+      minimapCtx.closePath();
+      minimapCtx.fill();
+    }
+    function drawMinimapTerminal(x, y, size) {
+      var centerX = x + size / 2, centerY = y + size / 2;
+      minimapCtx.fillStyle = '#39ff14';
+      minimapCtx.beginPath();
+      minimapCtx.arc(centerX, centerY, Math.max(2, size * 0.26), 0, Math.PI * 2);
+      minimapCtx.fill();
+    }
+    function drawMinimapCage(x, y, size) {
+      var centerX = x + size / 2, centerY = y + size / 2;
+      minimapCtx.fillStyle = '#ff2e4c';
+      minimapCtx.beginPath();
+      minimapCtx.arc(centerX, centerY, Math.max(2, size * 0.32), 0, Math.PI * 2);
+      minimapCtx.fill();
     }
     function drawMinimapPlayer(x, y, size) {
       var px = x + size * 0.22;
@@ -2672,14 +3117,27 @@
       for (var y = 0; y < map.length; y++) {
         for (var x = 0; x < map[y].length; x++) {
           var tile = map[y][x];
-          minimapCtx.fillStyle = tile === WALL ? '#243447' : tile === STAIRS ? '#2a2253' : tile === SECRET_DOOR ? '#490f25' : '#111b2c';
+          minimapCtx.fillStyle = tile === WALL ? '#243447' : tile === SECRET_DOOR ? '#490f25' : '#111b2c';
           minimapCtx.fillRect(x * cell, y * cell, cell, cell);
         }
       }
-      if (stairs && stairs.x >= 0 && stairs.y >= 0) drawMinimapStairs(stairs.x * cell, stairs.y * cell, cell);
       if (secretDoor && secretDoor.x >= 0 && secretDoor.y >= 0) drawMinimapSecretDoor(secretDoor.x * cell, secretDoor.y * cell, cell, !!secretDoor.open);
+      var activeRedHatch = inRedMap ? redMapData.hatch_pos : (secretMapIndex === 3 ? redHatchPos : null);
+      if (activeRedHatch && activeRedHatch.x >= 0 && activeRedHatch.y >= 0) {
+        drawMinimapRedHatch(activeRedHatch.x * cell, activeRedHatch.y * cell, cell);
+      }
       if (merchant && merchant.x >= 0 && merchant.y >= 0) drawMinimapMerchant(merchant.x * cell, merchant.y * cell, cell);
       if (secretKey && secretKey.active && secretKey.x >= 0 && secretKey.y >= 0) drawMinimapKey(secretKey.x * cell, secretKey.y * cell, cell);
+      var miniRedKey = inRedMap ? redMapData.red_key : redKey;
+      if (miniRedKey && miniRedKey.active && miniRedKey.x >= 0 && miniRedKey.y >= 0) drawMinimapKey(miniRedKey.x * cell, miniRedKey.y * cell, cell);
+      if (vents && vents.length) vents.forEach(function(vent) { drawMinimapVent(vent.x * cell, vent.y * cell, cell); });
+      if (terminals && terminals.length) terminals.forEach(function(term) { drawMinimapTerminal(term.x * cell, term.y * cell, cell); });
+      if (cagePos && cagePos.x >= 0 && cagePos.y >= 0) drawMinimapCage(cagePos.x * cell, cagePos.y * cell, cell);
+      if (inRedMap && redMapData.spawner_pos) drawMinimapCage(redMapData.spawner_pos.x * cell, redMapData.spawner_pos.y * cell, cell);
+      if (catQuest.rescued && catQuest.cat_x >= 0 && catQuest.cat_y >= 0) {
+        minimapCtx.fillStyle = '#ff9d5c';
+        minimapCtx.fillRect(catQuest.cat_x * cell + cell * 0.25, catQuest.cat_y * cell + cell * 0.25, cell * 0.5, cell * 0.5);
+      }
       gravestones.forEach(function(stone) {
         minimapCtx.fillStyle = '#9b91b8';
         minimapCtx.fillRect(stone.x * cell + cell * 0.25, stone.y * cell + cell * 0.25, cell * 0.5, cell * 0.5);
@@ -2748,10 +3206,13 @@
           if (fog === FOG_DARK) {
             ctx.fillStyle = '#000';
             ctx.fillRect(vx*cellSize, vy*cellSize, cellSize, cellSize);
-          } else {
-            drawTile(vx, vy, map[wy][wx]);
+          } else if (map[wy] && map[wy][wx] != null) {
+            drawTile(vx, vy, map[wy][wx], wx, wy);
             drawDecoration(vx, vy, wx, wy, map[wy][wx]);
             if (fog === FOG_FOGGY) drawFogOverlay(vx, vy);
+          } else {
+            ctx.fillStyle = '#05080f';
+            ctx.fillRect(vx * cellSize, vy * cellSize, cellSize, cellSize);
           }
         }
       }
@@ -2769,6 +3230,22 @@
       });
       if (secretKey && secretKey.active && isVisible(secretKey.x, secretKey.y) && inViewport(secretKey.x, secretKey.y, cam)) {
         var ks = wts(secretKey.x, secretKey.y, cam); drawSecretKey(ks.x/cellSize, ks.y/cellSize);
+      }
+      var activeRedKey = inRedMap ? redMapData.red_key : redKey;
+      if (activeRedKey && activeRedKey.active && isVisible(activeRedKey.x, activeRedKey.y) && inViewport(activeRedKey.x, activeRedKey.y, cam)) {
+        var rks = wts(activeRedKey.x, activeRedKey.y, cam); drawSecretKey(rks.x/cellSize, rks.y/cellSize);
+        ctx.strokeStyle = 'rgba(255,85,90,0.8)'; ctx.lineWidth = Math.max(1, cellSize * 0.08);
+        ctx.strokeRect(rks.x + cellSize * 0.12, rks.y + cellSize * 0.12, cellSize * 0.76, cellSize * 0.76);
+      }
+      var visibleCat = catState && catState.active && (catState.rescued || catState.x >= 0);
+      if (inRedMap && !catQuest.rescued && redMapData.spawner_pos) {
+        visibleCat = true;
+        catState.x = redMapData.spawner_pos.x;
+        catState.y = redMapData.spawner_pos.y;
+      }
+      if (visibleCat) {
+        var catScreen = wts(catState.x, catState.y, cam);
+        if (isVisible(catState.x, catState.y) && inViewport(catState.x, catState.y, cam)) drawCyberCat(catScreen.x / cellSize, catScreen.y / cellSize);
       }
       enemies.forEach(function(e) {
         if (isVisible(e.x,e.y) && inViewport(e.x,e.y,cam)) {
@@ -2791,6 +3268,10 @@
 
       drawAoeEffect(now);
       drawFogVignette(cam);
+      if (inRedMap) {
+        ctx.fillStyle = 'rgba(255, 0, 40, 0.08)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
       drawParticles(now, cam);
       drawFloatTexts(now);
     }
@@ -2803,6 +3284,68 @@
         requestAnimationFrame(loop);
       })();
     }
+
+    if (ventBtn) {
+      ventBtn.addEventListener('click', function() {
+        if (!map.length) return;
+        playActionSound('vent');
+        fetch(apiUrl('/api/use-vent'), { method: 'POST' })
+          .then(function(response) { return response.json(); })
+          .then(function(data) {
+            if (data && data.logs) processLogs(data.logs);
+            if (data && data.map) applyMapState(data);
+            if (data && data.success) updateVentButton();
+          })
+          .catch(function() {
+            console.warn('Vent işlemi başarısız');
+          });
+      });
+    }
+
+    if (unlockCatBtn) {
+      unlockCatBtn.addEventListener('click', async function() {
+        try {
+          var res = await fetch(apiUrl('/api/unlock-cat'), { method: 'POST' });
+          var data = await res.json().catch(function() { return {}; });
+          if (!res.ok) throw new Error(data.detail || 'Kafes açılamadı');
+          if (data && data.logs) processLogs(data.logs);
+          applyState(data);
+          playActionSound('cat-rescue');
+        } catch (e) {
+          addLog((e && e.message) || 'Kafes açılamadı', 'info');
+        }
+      });
+    }
+
+    async function callRedMapAction(path, soundKind, errorMessage) {
+      var actionButton = path === '/api/exit-red-map' ? exitRedBtn : enterRedBtn;
+      if (actionButton && actionButton.dataset.busy === 'true') return;
+      if (actionButton) {
+        actionButton.dataset.busy = 'true';
+        actionButton.disabled = true;
+      }
+      try {
+        var res = await fetch(apiUrl(path), { method:'POST' });
+        var data = await res.json().catch(function() { return {}; });
+        if (!res.ok) throw new Error(data.detail || errorMessage);
+        if (data.logs) processLogs(data.logs);
+        applyState(data);
+        playActionSound(soundKind);
+      } catch (e) {
+        addLog((e && e.message) || errorMessage, 'info');
+      } finally {
+        if (actionButton) {
+          actionButton.dataset.busy = 'false';
+          updateRedMapButtons();
+        }
+      }
+    }
+    if (enterRedBtn) enterRedBtn.addEventListener('click', function() {
+      callRedMapAction('/api/enter-red-map', 'hatch', 'Kırmızı Odaya inilemedi');
+    });
+    if (exitRedBtn) exitRedBtn.addEventListener('click', function() {
+      callRedMapAction('/api/exit-red-map', 'hatch', 'Kırmızı Odadan çıkılamadı');
+    });
 
     // ── Shake ────────────────────────────────────────────────────────────────
     function triggerShake() {
@@ -2999,6 +3542,13 @@
         // AoE effect
         if (data.battles) {
           data.battles.forEach(function(b) {
+            if (b.cat_attack) {
+              var catAttackOrigin = particleOrigin(b.enemy_x, b.enemy_y);
+              spawnHitParticles(catAttackOrigin.wx, catAttackOrigin.wy, '#ff9d5c');
+              spawnFloat(b.enemy_x, b.enemy_y, '-300 HP', '#ff9d5c');
+              triggerShake();
+              playActionSound('boss');
+            }
             if (b.potion_throw || b.dizzy) {
               canvasFrame.classList.remove('dizzy-effect');
               void canvasFrame.offsetWidth;
@@ -3030,6 +3580,15 @@
           return { id:chest.id, x:chest.x, y:chest.y, active:chest.active };
         });
         applyState(data);
+        if (data.spawner_damage) {
+          canvasFrame.classList.remove('burn-effect');
+          void canvasFrame.offsetWidth;
+          canvasFrame.classList.add('burn-effect');
+          var burnOrigin = particleOrigin(player.x, player.y);
+          spawnBurnParticles(burnOrigin.wx, burnOrigin.wy);
+          spawnFloat(player.x, player.y, '-1 HP', '#ff6a1a');
+          triggerShake();
+        }
         previousChests.forEach(function(previousChest) {
           if (!previousChest.active) return;
           var openedChest = chests.find(function(chest) {
