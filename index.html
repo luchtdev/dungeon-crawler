@@ -64,25 +64,30 @@
     .auth-submit:disabled { opacity: 0.5; cursor: wait; }
     .auth-error { min-height: 18px; color: #ff6688; font-size: 0.65rem; text-align: center; }
     .auth-hint { color: var(--text-muted); font-size: 0.6rem; line-height: 1.5; text-align: center; }
-    .class-modal { width: 100%; max-width: 420px; text-align: center; }
+    .class-modal { width: 100%; max-width: 540px; text-align: center; }
     .class-title { font-size: 1.2rem; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase;
       background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 4px; }
     .class-sub { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 18px; }
     .class-cards { display: flex; flex-direction: column; gap: 10px; }
-    .class-card { display: flex; align-items: center; gap: 14px; padding: 14px;
+    .class-card { display: flex; align-items: flex-start; gap: 14px; padding: 14px;
       background: var(--bg-panel); border: 1px solid rgba(0,240,255,0.25);
       border-radius: 10px; cursor: pointer; text-align: left; touch-action: manipulation;
       transition: border-color 0.2s, box-shadow 0.2s; }
     .class-card:not(:disabled):active { border-color: var(--neon-cyan); box-shadow: 0 0 20px rgba(0,240,255,0.3); }
     .class-card:disabled { opacity: 0.4; pointer-events: none; }
-    .class-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
-      font-size: 1.6rem; border-radius: 8px; flex-shrink: 0; }
+    .class-icon { width: 54px; height: 54px; display: flex; align-items: center; justify-content: center;
+      font-family: "Segoe UI Emoji", sans-serif; font-size: 1.8rem; border-radius: 8px; flex-shrink: 0; }
     .class-card.warrior .class-icon { background: rgba(255,68,102,0.15); border: 1px solid rgba(255,68,102,0.4); }
     .class-card.mage   .class-icon { background: rgba(68,136,255,0.15); border: 1px solid rgba(68,136,255,0.4); }
     .class-card.rogue  .class-icon { background: rgba(57,255,20,0.12);  border: 1px solid rgba(57,255,20,0.35); }
-    .class-name  { font-size: 0.9rem; font-weight: 700; margin-bottom: 3px; }
-    .class-stats { font-size: 0.65rem; color: var(--text-muted); line-height: 1.5; }
+    .class-card-copy { min-width: 0; display: flex; flex: 1; flex-direction: column; gap: 5px; }
+    .class-name  { font-size: 0.9rem; font-weight: 700; }
+    .class-role { color: var(--neon-yellow); font-size: 0.56rem; letter-spacing: 0.08em; }
+    .class-description { color: var(--text-primary); font: 0.84rem/1.45 'Courier New', monospace; }
+    .class-stats { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+    .class-stat { padding: 4px 5px; border: 1px solid rgba(240,195,106,0.25);
+      background: rgba(0,0,0,0.2); color: var(--text-muted); font: 0.58rem 'Courier New', monospace; }
     .class-error { display: none; margin-top: 14px; padding: 10px; border-radius: 8px;
       font-size: 0.72rem; color: #ff6b8a;
       background: rgba(255,34,68,0.12); border: 1px solid rgba(255,34,68,0.35); }
@@ -1212,19 +1217,34 @@
   <div class="class-overlay" id="classOverlay">
     <div class="class-modal">
       <div class="class-title">CYBER DUNGEON</div>
-      <p class="class-sub">Sınıfını seç, zindanı fethet, boss katına ilerle ve neon dungeon’ı temizle.</p>
+      <p class="class-sub">Oyun tarzına uygun kahramanı seç. Her sınıf farklı güçlerle başlar.</p>
       <div class="class-cards">
         <button type="button" class="class-card warrior" data-class="Warrior" disabled>
-          <div class="class-icon">[W]</div>
-          <div><div class="class-name">Warrior</div><div class="class-stats">HP 150 - ATK 12 - MP 20 - Yuksek savunma</div></div>
+          <div class="class-icon" aria-hidden="true">🛡️</div>
+          <div class="class-card-copy">
+            <div class="class-name">Savaşçı</div>
+            <div class="class-role">DAYANIKLI ÖNCÜ</div>
+            <div class="class-description">En yüksek canıyla darbeleri göğüsler. Güvenli ve sağlam ilerlemek isteyenler için ideal.</div>
+            <div class="class-stats"><span class="class-stat">CAN 150</span><span class="class-stat">SALDIRI 12</span><span class="class-stat">MANA 20</span><span class="class-stat">HIZ 3</span><span class="class-stat">ALTIN 10</span></div>
+          </div>
         </button>
         <button type="button" class="class-card mage" data-class="Mage" disabled>
-          <div class="class-icon">[M]</div>
-          <div><div class="class-name">Mage</div><div class="class-stats">HP 80 - ATK 20 - MP 100 - Alev Topu</div></div>
+          <div class="class-icon" aria-hidden="true">🔮</div>
+          <div class="class-card-copy">
+            <div class="class-name">Büyücü</div>
+            <div class="class-role">YÜKSEK HASAR VE MANA</div>
+            <div class="class-description">En yüksek saldırı gücü ve mana havuzuyla başlar. Alev topunu sık kullanıp düşmanları uzaktan erit.</div>
+            <div class="class-stats"><span class="class-stat">CAN 80</span><span class="class-stat">SALDIRI 20</span><span class="class-stat">MANA 100</span><span class="class-stat">HIZ 4</span><span class="class-stat">ALTIN 10</span></div>
+          </div>
         </button>
         <button type="button" class="class-card rogue" data-class="Rogue" disabled>
-          <div class="class-icon">[R]</div>
-          <div><div class="class-name">Rogue</div><div class="class-stats">HP 105 - ATK 15 - 50 Altin baslangic</div></div>
+          <div class="class-icon" aria-hidden="true">🗡️</div>
+          <div class="class-card-copy">
+            <div class="class-name">Haydut</div>
+            <div class="class-role">ÇEVİK KEŞİFÇİ</div>
+            <div class="class-description">En yüksek hareket hızıyla zindanı daha seri keşfeder. Başlangıç altınıyla erken ekipman veya iksir al.</div>
+            <div class="class-stats"><span class="class-stat">CAN 105</span><span class="class-stat">SALDIRI 15</span><span class="class-stat">MANA 40</span><span class="class-stat">HIZ 6</span><span class="class-stat">ALTIN 50</span></div>
+          </div>
         </button>
       </div>
       <div class="class-error" id="classError"></div>
