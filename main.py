@@ -424,6 +424,11 @@ stairs_positions: list = []
 next_enemy_id = 1
 game_over = False
 game_won = False
+mode = "classic"
+countdown_timer = 90.0
+countdown_updated_at = 0.0
+terminals_needed = 3
+wave = 0
 pending_level_ups = 0
 boss_entity: Optional[dict] = None
 current_user_id: Optional[int] = None
@@ -478,6 +483,8 @@ def runtime_state() -> dict:
         "merchant_state": merchant_state, "stairs_pos": stairs_pos, "stairs_positions": stairs_positions,
         "next_enemy_id": next_enemy_id,
         "game_over": game_over, "game_won": game_won, "boss_entity": boss_entity,
+        "mode": mode, "countdown_timer": countdown_timer,
+        "countdown_updated_at": countdown_updated_at, "terminals_needed": terminals_needed, "wave": wave,
         "class_selected": class_selected, "character_class": character_class,
         "daily_quest": daily_quest, "current_floor": current_floor, "secret_map_index": secret_map_index,
         "secret_key": secret_key, "secret_door": secret_door, "has_secret_key": has_secret_key,
@@ -492,6 +499,7 @@ def runtime_state() -> dict:
 def clear_runtime_state() -> None:
     global game_map, fog_matrix, enemies, chests, gravestones, merchant_state, stairs_pos, stairs_positions, next_enemy_id
     global game_over, game_won, boss_entity, class_selected, character_class, daily_quest
+    global mode, countdown_timer, countdown_updated_at, terminals_needed, wave
     global current_floor, secret_map_index, secret_key, secret_door, has_secret_key
     global station_rooms, vents, terminals, cage_pos, red_key, cat_state, red_hatch_pos, cat_quest, equipment, inventory, pending_level_ups
     game_map, fog_matrix, enemies, chests, gravestones = [], [], [], [], []
@@ -500,6 +508,7 @@ def clear_runtime_state() -> None:
     cage_pos = {"x": -1, "y": -1}
     next_enemy_id = 1
     game_over = game_won = False
+    mode, countdown_timer, countdown_updated_at, terminals_needed, wave = "classic", 90.0, 0.0, 3, 0
     boss_entity = None
     class_selected = False
     character_class = None
@@ -534,6 +543,7 @@ def clear_runtime_state() -> None:
 def load_game_state(user_id: int) -> None:
     global current_user_id, game_map, fog_matrix, enemies, chests, gravestones, merchant_state, stairs_pos, stairs_positions, next_enemy_id
     global game_over, game_won, boss_entity, class_selected, character_class, daily_quest
+    global mode, countdown_timer, countdown_updated_at, terminals_needed, wave
     global current_floor, secret_map_index, secret_key, secret_door, has_secret_key, red_key, cat_state, red_hatch_pos, cat_quest
     global player_state, equipment, inventory, pending_level_ups
     global achievement_cache_user_id, achievement_cache
@@ -563,6 +573,11 @@ def load_game_state(user_id: int) -> None:
         stairs_positions = [dict(stairs_pos)]
     next_enemy_id = state.get("next_enemy_id", 1)
     game_over, game_won = state.get("game_over", False), state.get("game_won", False)
+    mode = state.get("mode", "classic")
+    countdown_timer = state.get("countdown_timer", 90.0)
+    countdown_updated_at = state.get("countdown_updated_at", 0.0)
+    terminals_needed = state.get("terminals_needed", 3)
+    wave = state.get("wave", 0)
     boss_entity = state.get("boss_entity")
     class_selected, character_class = state.get("class_selected", False), state.get("character_class")
     daily_quest = state.get("daily_quest", {})
@@ -600,7 +615,7 @@ def load_game_state(user_id: int) -> None:
         spawn_stairs()
         if secret_map_index == 3:
             setup_red_hatch()
-    if station_rooms and not cat_quest.get("in_red_map"):
+    if station_rooms and mode != "sabotage" and not cat_quest.get("in_red_map"):
         game_map = generate_bsp_map()
         station_rooms, vents, terminals = [], [], []
         cage_pos = {"x": -1, "y": -1}
@@ -665,6 +680,9 @@ async def account_state_middleware(request: Request, call_next):
 
 class MoveRequest(BaseModel):
     direction: str = Field(..., pattern="^(up|down|left|right)$")
+
+class StartGameRequest(BaseModel):
+    mode: str = Field(..., pattern="^(classic|sabotage|arena)$")
 
 class BuyItemRequest(BaseModel):
     item: str
@@ -827,6 +845,7 @@ def generate_station_map() -> tuple[list, list, list, list, dict]:
     terminals = [
         {"id": 1, "x": 6, "y": 8, "type": "electrical", "completed": False},
         {"id": 2, "x": 25, "y": 22, "type": "reactor", "completed": False},
+        {"id": 3, "x": 26, "y": 14, "type": "communications", "completed": False},
     ]
     for vent in vent_positions:
         grid[vent["y"]][vent["x"]] = VENT
@@ -1112,7 +1131,7 @@ def get_spawn_candidates(exclude: Optional[set] = None) -> list:
 
 def spawn_stairs() -> None:
     global stairs_pos, stairs_positions
-    if current_floor >= BOSS_FLOOR or secret_map_index >= SECRET_MAP_COUNT:
+    if mode in {"sabotage", "arena"} or current_floor >= BOSS_FLOOR or secret_map_index >= SECRET_MAP_COUNT:
         stairs_pos = {"x": -1, "y": -1}
         stairs_positions = []
         return
@@ -1219,6 +1238,28 @@ def spawn_enemies() -> None:
         }
         enemies.append(enemy)
         next_enemy_id += 1
+
+
+def spawn_wave(logs: list) -> None:
+    global enemies, next_enemy_id, wave
+    wave += 1
+    enemies = []
+    exclude = {(player_state["x"], player_state["y"]), (merchant_state["x"], merchant_state["y"])}
+    exclude.update((chest["x"], chest["y"]) for chest in chests if chest["active"])
+    candidates = get_spawn_candidates(exclude)
+    random.shuffle(candidates)
+    enemy_count = min(MAX_ENEMY_COUNT, ENEMY_COUNT + (wave - 1) * 2)
+    type_pool = ["Goblin"] * 4 + ["Skeleton Archer"] * 2 + ["Poison Zombie"] * 6
+    if wave >= 2:
+        type_pool += ["Orc Bruiser"] * 2
+    for x, y in candidates[:enemy_count]:
+        etype = random.choice(type_pool)
+        stats = _scale_enemy(etype, current_floor + wave - 1)
+        enemies.append({"id": next_enemy_id, "name": etype, "x": x, "y": y,
+                        **stats, "move_timer": 0, "last_throw": 0.0})
+        next_enemy_id += 1
+    if logs is not None:
+        logs.append({"type": "combat", "message": f"DALGA {wave:02d} başladı! {len(enemies)} düşman yaklaşıyor."})
 
 
 def spawn_boss() -> None:
@@ -1698,12 +1739,15 @@ def init_game_with_class(cls: str) -> None:
     global game_map, game_over, game_won, boss_entity, next_enemy_id, character_class
     global class_selected, current_floor, equipment, inventory, secret_map_index, pending_level_ups, cat_quest, red_hatch_pos
     global station_rooms, vents, terminals, cage_pos, cat_state, red_key
+    global secret_key, secret_door, has_secret_key
+    global countdown_timer, countdown_updated_at, terminals_needed, wave
     saved_progress = copy.deepcopy(player_state)
     saved_equipment = copy.deepcopy(equipment)
     saved_inventory = copy.deepcopy(inventory)
     character_class = cls
     class_selected = True
     current_floor = 1
+    countdown_timer, countdown_updated_at, terminals_needed, wave = 90.0, time.time(), 3, 0
     secret_map_index = 1
     game_won = False
     pending_level_ups = 0
@@ -1715,9 +1759,17 @@ def init_game_with_class(cls: str) -> None:
     equipment = saved_equipment
     inventory = saved_inventory
 
-    game_map = generate_bsp_map()
-    station_rooms, vents, terminals = [], [], []
-    cage_pos = {"x": -1, "y": -1}
+    if mode == "sabotage":
+        game_map = generate_level_map()
+    else:
+        game_map = generate_bsp_map()
+        station_rooms, vents, terminals = [], [], []
+        cage_pos = {"x": -1, "y": -1}
+    if mode != "classic":
+        secret_key = {"x": -1, "y": -1, "active": False}
+        secret_door = {"x": -1, "y": -1, "open": False}
+        has_secret_key = False
+    next_enemy_id = 1
     spawn_x, spawn_y = find_safe_spawn(game_map)
     stats = CLASS_STATS[cls]
     player_state.update({
@@ -1745,8 +1797,12 @@ def init_game_with_class(cls: str) -> None:
     spawn_chests()
     spawn_merchant()
     spawn_stairs()
-    spawn_secret_route()
-    spawn_enemies()
+    if mode == "classic":
+        spawn_secret_route()
+    if mode == "arena":
+        spawn_wave([])
+    else:
+        spawn_enemies()
     load_gravestones_for_floor()
     update_fog(0, 0)
 
@@ -1806,6 +1862,8 @@ def apply_enemy_kill_rewards(enemy: dict, logs: list) -> dict:
             logs.append({"type": "item", "message": f"💎 Eşya düştü: {dropped['name']} ({dropped['rarity']})"})
         else:
             logs.append({"type": "info", "message": "Envanter dolu! Eşya kayboldu."})
+    if mode == "arena" and not enemies and not game_over and not game_won:
+        spawn_wave(logs)
     return {"gold_gained": gold_gain, "exp_gained": exp_gain, "item_drop": dropped}
 
 
@@ -2087,6 +2145,11 @@ def build_status() -> dict:
          and red_key.get("x", -1) >= 0 and not red_key.get("active"))
     )
     base = {
+        "mode": mode,
+        "countdown_timer": max(0.0, countdown_timer),
+        "terminals_needed": terminals_needed,
+        "wave": wave,
+        "enemies_remaining": len(enemies),
         "class_selected": class_selected,
         "character_class": character_class,
         "grid_size": GRID_SIZE,
@@ -2383,7 +2446,29 @@ async def logout(request: Request, response: Response):
 
 @app.get("/api/status")
 async def get_status():
+    update_sabotage_timer()
     return build_status()
+
+
+def update_sabotage_timer() -> None:
+    global countdown_timer, countdown_updated_at, game_over
+    if mode != "sabotage" or game_over or game_won:
+        return
+    now = time.time()
+    if countdown_updated_at <= 0:
+        countdown_updated_at = now
+    countdown_timer = max(0.0, countdown_timer - (now - countdown_updated_at))
+    countdown_updated_at = now
+    if countdown_timer <= 0:
+        game_over = True
+
+
+@app.post("/api/start-game")
+async def start_game(payload: StartGameRequest):
+    global mode, countdown_timer, countdown_updated_at, terminals_needed, wave
+    mode = payload.mode
+    countdown_timer, countdown_updated_at, terminals_needed, wave = 90.0, time.time(), 3, 0
+    return {**build_status(), "success": True}
 
 
 @app.get("/api/map")
@@ -2440,9 +2525,34 @@ async def use_vent():
     return {**build_status(), "success": True, "message": "Vent kullanıldı", "logs": logs}
 
 
+@app.post("/api/repair-terminal")
+async def repair_terminal():
+    global terminals_needed, game_won
+    require_class_selected()
+    update_sabotage_timer()
+    if mode != "sabotage":
+        raise HTTPException(400, detail="Terminaller yalnızca Sabotaj modunda kullanılabilir")
+    if game_over:
+        return {**build_status(), "success": False}
+    terminal = next((item for item in terminals
+                     if item["x"] == player_state["x"] and item["y"] == player_state["y"]
+                     and not item.get("completed")), None)
+    if terminal is None:
+        raise HTTPException(400, detail="Tamir edilecek terminalin üzerinde değilsin")
+    terminal["completed"] = True
+    terminals_needed = max(0, terminals_needed - 1)
+    logs = [{"type": "quest", "message": f"Terminal {terminal['id']} onarıldı. Kalan: {terminals_needed}/3"}]
+    if terminals_needed == 0:
+        game_won = True
+        logs.append({"type": "quest", "message": "Sabotaj krizi durduruldu!"})
+    return {**build_status(), "success": True, "logs": logs}
+
+
 @app.post("/api/use-stairs")
 async def use_stairs():
     require_class_selected()
+    if mode == "arena":
+        raise HTTPException(400, detail="Sonsuz Arena modunda merdiven kullanılamaz")
     if cat_quest.get("in_red_map") or not stairs_positions:
         raise HTTPException(400, detail="Bu haritada kullanılabilir merdiven yok")
     current_index = next((index for index, stair in enumerate(stairs_positions)
@@ -2500,7 +2610,10 @@ async def move_player(payload: MoveRequest):
     global game_over
     require_class_selected()
     require_level_choice()
+    update_sabotage_timer()
     if game_over:
+        if mode == "sabotage":
+            return {**build_status(), "logs": [{"type": "combat", "message": "Süre doldu! Sabotaj krizi başarısız oldu."}]}
         raise HTTPException(400, detail="Oyun bitti")
 
     logs: list = []

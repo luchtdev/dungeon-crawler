@@ -69,6 +69,12 @@
       background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 4px; }
     .class-sub { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 18px; }
+    .mode-picker { display: grid; grid-template-columns: 1fr; gap: 7px; margin: 0 0 14px; text-align: left; }
+    .mode-choice { display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; border: 1px solid rgba(0,240,255,0.28); background: rgba(0,0,0,0.34); color: var(--text-primary); cursor: pointer; text-align: left; }
+    .mode-choice strong { color: var(--neon-cyan); font: 0.62rem 'Press Start 2P', monospace; }
+    .mode-choice span { color: var(--text-muted); font: 0.78rem/1.3 'Courier New', monospace; }
+    .mode-choice[aria-pressed="true"] { border-color: var(--neon-green); box-shadow: inset 3px 0 var(--neon-green), 0 0 12px rgba(57,255,20,0.14); background: rgba(57,255,20,0.07); }
+    .mode-choice[aria-pressed="true"] strong { color: var(--neon-green); }
     .class-cards { display: flex; flex-direction: column; gap: 10px; }
     .class-card { display: flex; align-items: flex-start; gap: 14px; padding: 14px;
       background: var(--bg-panel); border: 1px solid rgba(0,240,255,0.25);
@@ -122,6 +128,19 @@
       position: relative;
       overflow: hidden;
     }
+    .mode-hud { display: none; flex-shrink: 0; padding: 7px 10px; border: 2px solid var(--neon-red); background: rgba(38,4,13,.94); color: #fff; }
+    .mode-hud.sabotage, .mode-hud.arena { display: block; }
+    .mode-hud.sabotage { animation: modeAlarm 0.8s steps(2,end) infinite; }
+    .mode-hud-line { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; font: 0.62rem 'Press Start 2P', monospace; }
+    .mode-hud-meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 5px; font: 0.75rem 'Courier New', monospace; color: #ffb3bf; }
+    .mode-countdown-track { height: 5px; margin-top: 6px; background: #42101b; }
+    .mode-countdown-fill { display: block; width: 100%; height: 100%; background: #ff2244; box-shadow: 0 0 8px #ff2244; transition: width .2s linear; }
+    .mode-hud.arena { border-color: var(--neon-orange); background: rgba(32,16,4,.94); }
+    .mode-hud.arena .mode-hud-line { color: #ffd09b; }
+    .mode-hud.arena .mode-hud-meta { color: #ffb45a; }
+    @keyframes modeAlarm { 50% { border-color: #ff8a00; box-shadow: 0 0 12px rgba(255,34,68,.45); } }
+    .terminal-repair-btn { display: none; }
+    .terminal-repair-btn.is-visible { display: inline-flex; }
     .character-identity { display: flex; align-items: center; gap: 8px; min-width: 0; }
     .character-avatar { width: 34px; height: 34px; display: grid; place-items: center; flex-shrink: 0;
       border: 2px solid var(--panel-border); background: rgba(0, 212, 255, 0.08);
@@ -1388,6 +1407,11 @@
     <div class="class-modal">
       <div class="class-title">CYBER DUNGEON</div>
       <p class="class-sub">Oyun tarzına uygun kahramanı seç. Her sınıf farklı güçlerle başlar.</p>
+      <div class="mode-picker" role="group" aria-label="Oyun modu seçimi">
+        <button type="button" class="mode-choice" data-mode="classic" aria-pressed="true"><strong>KLASİK ZİNDAN</strong><span>Kat kat ilerle, kediyi kurtar ve boss avla.</span></button>
+        <button type="button" class="mode-choice" data-mode="sabotage" aria-pressed="false"><strong>SABOTAJ KRİZİ</strong><span>90 saniyede üç terminali onar.</span></button>
+        <button type="button" class="mode-choice" data-mode="arena" aria-pressed="false"><strong>SONSUZ ARENA</strong><span>Tek haritada giderek güçlenen dalgalara dayan.</span></button>
+      </div>
       <div class="class-cards">
         <button type="button" class="class-card warrior" data-class="Warrior" disabled>
           <div class="class-icon" aria-hidden="true">🛡️</div>
@@ -1433,6 +1457,11 @@
       <button type="button" class="settings-pill" id="settingsBtn">Ses: AÇIK</button>
       <button type="button" class="settings-pill" id="logoutBtn">Çıkış</button>
     </div>
+    <section class="mode-hud" id="modeHud" aria-live="polite">
+      <div class="mode-hud-line"><strong id="modeHudTitle"></strong><strong id="modeHudCount"></strong></div>
+      <div class="mode-hud-meta"><span id="modeHudMeta"></span><span id="modeHudClock"></span></div>
+      <div class="mode-countdown-track" id="modeCountdownTrack"><span class="mode-countdown-fill" id="modeCountdownFill"></span></div>
+    </section>
     <header class="hud-bar bio-hud">
       <div class="stat-badge hp-badge">
         <div class="bio-health-line"><span class="bio-heart" aria-hidden="true">❤️</span><span class="badge-label">HP</span><span class="status-dot" id="hpDot"></span><span class="badge-value" id="badgeHp">--</span></div>
@@ -1498,6 +1527,7 @@
     </section>
     <section class="controls-section">
       <div class="action-row">
+        <button type="button" class="cyber-btn-red terminal-repair-btn" id="repairTerminalBtn">TERMİNALİ ONAR</button>
         <button type="button" class="action-btn attack" id="attackBtn" disabled>
           <span class="action-icon"><span class="fire-icon" aria-hidden="true"></span></span>Attak
         </button>
@@ -1960,6 +1990,15 @@
     const classOverlay = document.getElementById('classOverlay');
     const classError = document.getElementById('classError');
     const classButtons = document.querySelectorAll('.class-card');
+    const modeChoices = document.querySelectorAll('.mode-choice');
+    const repairTerminalBtn = document.getElementById('repairTerminalBtn');
+    const modeHud = document.getElementById('modeHud');
+    const modeHudTitle = document.getElementById('modeHudTitle');
+    const modeHudCount = document.getElementById('modeHudCount');
+    const modeHudMeta = document.getElementById('modeHudMeta');
+    const modeHudClock = document.getElementById('modeHudClock');
+    const modeCountdownTrack = document.getElementById('modeCountdownTrack');
+    const modeCountdownFill = document.getElementById('modeCountdownFill');
     const loadingOverlay = document.getElementById('loadingOverlay');
     const levelUpOverlay = document.getElementById('levelUpOverlay');
     const levelUpLevel = document.getElementById('levelUpLevel');
@@ -2052,6 +2091,13 @@
     let characterClass = '', gridSize = GRID_SIZE, gridWidth = GRID_SIZE, gridHeight = GRID_SIZE;
     let atMerchant = false, loopStarted = false;
     let currentFloor = 1;
+    let selected_mode = 'classic';
+    let countdownTimer = 90;
+    let countdownUpdatedAt = 0;
+    let sabotageDeadlineRequested = false;
+    let terminalsNeeded = 3;
+    let arenaWave = 0;
+    let enemiesRemaining = 0;
     let authMode = 'login';
     let achievements = [];
     let character = { level:1, hp:100, maxHp:100, mp:50, maxMp:50, gold:0, exp:0, expToNext:100, attack:15, defense:0 };
@@ -2246,6 +2292,55 @@
       if (!ventBtn) return;
       var onVent = !!map.length && map[player.y] && map[player.y][player.x] === VENT;
       ventBtn.style.display = onVent ? 'inline-flex' : 'none';
+    }
+
+    function updateTerminalButton() {
+      if (!repairTerminalBtn) return;
+      var terminalHere = terminals.find(function(terminal) {
+        return terminal.x === player.x && terminal.y === player.y && !terminal.completed;
+      });
+      repairTerminalBtn.classList.toggle('is-visible', selected_mode === 'sabotage' && !!terminalHere);
+      repairTerminalBtn.disabled = gameOver || gameWon;
+    }
+
+    function updateModeHud() {
+      modeHud.classList.toggle('sabotage', selected_mode === 'sabotage');
+      modeHud.classList.toggle('arena', selected_mode === 'arena');
+      modeHud.classList.toggle('classic', selected_mode === 'classic');
+      modeCountdownTrack.hidden = selected_mode !== 'sabotage';
+      if (selected_mode === 'sabotage') {
+        var elapsed = countdownUpdatedAt ? (performance.now() - countdownUpdatedAt) / 1000 : 0;
+        var remaining = Math.max(0, countdownTimer - elapsed);
+        var seconds = Math.ceil(remaining);
+        modeHudTitle.textContent = 'SABOTAJ PROTOKOLÜ';
+        modeHudCount.textContent = 'KALAN TERMİNAL: ' + terminalsNeeded + '/3';
+        modeHudMeta.textContent = 'KRİTİK SÜRE';
+        modeHudClock.textContent = String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
+        modeCountdownFill.style.width = Math.max(0, remaining / 90 * 100) + '%';
+      } else if (selected_mode === 'arena') {
+        modeHudTitle.textContent = 'DALGA: ' + String(arenaWave).padStart(2, '0') + ' // PROTOKOL SALDIRISI';
+        modeHudCount.textContent = 'KALAN DÜŞMAN: ' + enemiesRemaining;
+        modeHudMeta.textContent = 'SONSUZ ARENA';
+        modeHudClock.textContent = '';
+        modeCountdownFill.style.width = '0%';
+      }
+      updateTerminalButton();
+    }
+
+    async function checkSabotageDeadline() {
+      if (sabotageDeadlineRequested || selected_mode !== 'sabotage' || gameOver || gameWon || !classSelected) return;
+      var elapsed = countdownUpdatedAt ? (performance.now() - countdownUpdatedAt) / 1000 : 0;
+      if (countdownTimer - elapsed > 0) return;
+      sabotageDeadlineRequested = true;
+      try {
+        var response = await fetch(apiUrl('/api/status?_=' + Date.now()), { cache:'no-store' });
+        if (!response.ok) return;
+        var data = await response.json();
+        applyState(data);
+        if (data.game_over) showGameOver('Süre doldu. Sabotaj krizi başarısız oldu.');
+      } catch (error) {
+        sabotageDeadlineRequested = false;
+      }
     }
 
     function updateCompanionWidget() {
@@ -2513,6 +2608,7 @@
       updateQuestUI();
       updateAchievementUI();
       updateHudPanels();
+      updateModeHud();
       updateEquipUI();
       updateInvUI();
     }
@@ -2546,6 +2642,15 @@
       classSelected = !!data.class_selected;
       gameOver = !!data.game_over;
       gameWon = !!data.game_won;
+      if (data.mode) selected_mode = data.mode;
+      if (data.countdown_timer != null) {
+        countdownTimer = data.countdown_timer;
+        countdownUpdatedAt = performance.now();
+        sabotageDeadlineRequested = countdownTimer <= 0;
+      }
+      if (data.terminals_needed != null) terminalsNeeded = data.terminals_needed;
+      if (data.wave != null) arenaWave = data.wave;
+      if (data.enemies_remaining != null) enemiesRemaining = data.enemies_remaining;
       atMerchant = !!data.at_merchant;
       secretMapIndex = data.secret_map || 1;
       hasSecretKey = !!data.has_secret_key;
@@ -3881,6 +3986,13 @@
       if (!initComplete || isSelectingClass || classSelected) return;
       isSelectingClass = true; hideClassError(); setClassButtonsEnabled(false);
       try {
+        var startRes = await fetch(apiUrl('/api/start-game'), {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({mode:selected_mode})
+        });
+        var startData = await startRes.json().catch(function(){return{};});
+        if (!startRes.ok) throw new Error(startData.detail || 'Oyun modu başlatılamadı');
+        applyState(startData);
         var res = await fetch(apiUrl('/api/select-class?_='+Date.now()), { method:'POST', cache:'no-store', headers:{'Content-Type':'application/json'}, body:JSON.stringify({character_class:cls}) });
         var data = await res.json().catch(function(){return{};});
         if (res.status === 400 && data.detail === 'Önce karakter sınıfı seçin') {
@@ -3940,7 +4052,7 @@
     }
     function showVictory() {
       gameWon = true;
-      document.getElementById('vFloor').textContent = MAX_FLOOR+'/'+MAX_FLOOR;
+      document.getElementById('vFloor').textContent = selected_mode === 'sabotage' ? '3/3' : MAX_FLOOR+'/'+MAX_FLOOR;
       document.getElementById('vLevel').textContent = character.level;
       document.getElementById('vGold').textContent = character.gold+' Altin';
       victoryOverlay.classList.add('active'); updateUI();
@@ -4082,7 +4194,7 @@
           playActionSound('win');
         }
         else if (data.game_over || gameOver) {
-          showGameOver();
+          showGameOver(selected_mode === 'sabotage' ? 'Süre doldu. Sabotaj krizi başarısız oldu.' : undefined);
         }
         if (data.at_merchant) shopOverlay.classList.add('active');
         else shopOverlay.classList.remove('active');
@@ -4153,6 +4265,24 @@
       } catch(e) { addLog('Esya kullanma hatasi!','info'); }
     }
 
+    async function repairTerminal() {
+      if (repairTerminalBtn.disabled) return;
+      repairTerminalBtn.disabled = true;
+      try {
+        var response = await fetch(apiUrl('/api/repair-terminal'), { method:'POST' });
+        var data = await response.json().catch(function(){return{};});
+        if (!response.ok) throw new Error(data.detail || 'Terminal onarılamadı');
+        applyState(data);
+        processLogs(data.logs || []);
+        if (data.game_won) showVictory();
+        if (data.game_over) showGameOver('Süre doldu. Sabotaj krizi başarısız oldu.');
+      } catch (error) {
+        addLog((error && error.message) || 'Terminal onarılamadı', 'info');
+      } finally {
+        updateTerminalButton();
+      }
+    }
+
     async function unequipSlot(slot) {
       try {
         var res = await fetch(apiUrl('/api/unequip'), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({slot:slot}) });
@@ -4183,6 +4313,23 @@
     classButtons.forEach(function(btn) {
       btn.addEventListener('click', function() { selectClass(btn.dataset.class); });
     });
+    modeChoices.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        selected_mode = btn.dataset.mode || 'classic';
+        modeChoices.forEach(function(choice) {
+          choice.setAttribute('aria-pressed', String(choice === btn));
+        });
+      });
+    });
+    repairTerminalBtn.addEventListener('pointerdown', function(event) {
+      event.preventDefault();
+      repairTerminal();
+    }, { passive:false });
+
+    setInterval(function() {
+      updateModeHud();
+      checkSabotageDeadline();
+    }, 250);
 
     document.getElementById('settingsBtn').addEventListener('click', toggleSound);
     loginTab.addEventListener('click', function(){setAuthMode('login');});
