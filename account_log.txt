@@ -41,3 +41,4 @@ KAYIT | tarih=2026-09-28T10:15:24.431394+00:00 | kullanici=kayit1
 GIRIS_BASARILI | tarih=2026-09-28T10:15:36.941457+00:00 | kullanici=kayit1
 KAYIT | tarih=2026-09-28T10:16:04.490604+00:00 | kullanici=kayit2
 KAYIT | tarih=2026-09-28T10:17:37.207718+00:00 | kullanici=kayit4
+KAYIT | tarih=2026-09-28T10:35:59.237923+00:00 | kullanici=yeni6

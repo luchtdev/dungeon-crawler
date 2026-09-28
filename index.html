@@ -1379,6 +1379,63 @@
     @media (prefers-reduced-motion: reduce) {
       .game-ui.crt-booting { animation: none; }
     }
+    @media (max-width: 859px) {
+      .class-overlay {
+        align-items: center;
+        padding: calc(8px + var(--safe-top)) 10px calc(8px + var(--safe-bottom));
+        overscroll-behavior: contain;
+        overflow-y: auto;
+      }
+      .class-modal { width: 100%; max-height: 100%; margin: auto 0; }
+      .class-title { margin-bottom: 3px; font-size: 0.9rem; }
+      .class-sub { margin-bottom: 9px; font-size: 0.58rem; }
+      .mode-picker { gap: 5px; margin-bottom: 9px; }
+      .mode-choice {
+        display: grid;
+        grid-template-columns: minmax(86px, 0.8fr) minmax(0, 1.6fr);
+        align-items: center;
+        gap: 8px;
+        min-height: 42px;
+        padding: 6px 8px;
+      }
+      .mode-choice strong { font-size: 0.48rem; line-height: 1.5; }
+      .mode-choice span { font-size: 0.68rem; line-height: 1.2; }
+      .class-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+      .class-card { min-width: 0; flex-direction: column; align-items: center; gap: 5px; padding: 8px 5px; text-align: center; }
+      .class-icon { width: 34px; height: 34px; font-size: 1.25rem; }
+      .class-card-copy { align-items: center; gap: 4px; }
+      .class-name { font-size: 0.68rem; }
+      .class-role { min-height: 2.4em; font-size: 0.43rem; line-height: 1.2; }
+      .class-description { display: none; }
+      .class-stats { justify-content: center; gap: 3px; }
+      .class-stat { padding: 3px; font-size: 0.43rem; }
+      .class-error { margin-top: 8px; padding: 7px; font-size: 0.58rem; }
+    }
+    @media (max-width: 380px) and (orientation: portrait) {
+      .class-overlay { padding-right: 8px; padding-left: 8px; }
+      .mode-choice { grid-template-columns: minmax(78px, 0.8fr) minmax(0, 1.6fr); gap: 6px; padding-right: 6px; padding-left: 6px; }
+      .mode-choice strong { font-size: 0.44rem; }
+      .mode-choice span { font-size: 0.63rem; }
+      .class-cards { gap: 4px; }
+      .class-card { padding: 7px 3px; }
+      .class-stat { font-size: 0.4rem; }
+    }
+    @media (max-width: 859px) and (orientation: portrait) and (max-height: 700px) {
+      .game-ui {
+        height: 100dvh;
+        min-height: 100dvh;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+      }
+      .map-section {
+        flex: 0 0 auto;
+        height: clamp(180px, calc(100dvh - 450px), 260px);
+        min-height: 180px;
+      }
+      .canvas-frame { height: 100%; }
+    }
   </style>
 </head>
 <body>
