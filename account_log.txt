@@ -33,3 +33,7 @@ KAYIT | tarih=2026-09-23T23:12:16.848521+00:00 | kullanici=repost
 KAYIT | tarih=2026-09-23T23:27:26.003461+00:00 | kullanici=repost2
 KAYIT | tarih=2026-09-23T23:47:33.651202+00:00 | kullanici=emirr
 KAYIT | tarih=2026-09-27T08:16:01.955158+00:00 | kullanici=repost9
+GIRIS_BASARISIZ | tarih=2026-09-28T08:58:08.326325+00:00 | kullanici=emiir
+GIRIS_BASARISIZ | tarih=2026-09-28T08:58:10.366711+00:00 | kullanici=emiir
+GIRIS_BASARILI | tarih=2026-09-28T08:58:12.816284+00:00 | kullanici=emir
+GIRIS_BASARILI | tarih=2026-09-28T09:14:56.663031+00:00 | kullanici=admin

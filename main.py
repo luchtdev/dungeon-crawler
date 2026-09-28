@@ -109,9 +109,9 @@ DIR_DELTA = {
 }
 
 CLASS_STATS = {
-    "Warrior": {"hp": 150, "max_hp": 150, "mp": 20,  "max_mp": 20,  "attack_power": 12, "gold": 10},
-    "Mage":    {"hp": 80,  "max_hp": 80,  "mp": 100, "max_mp": 100, "attack_power": 20, "gold": 10},
-    "Rogue":   {"hp": 105, "max_hp": 105, "mp": 40,  "max_mp": 40,  "attack_power": 15, "gold": 50},
+    "Warrior": {"hp": 150, "max_hp": 150, "mp": 20,  "max_mp": 20,  "attack_power": 12, "gold": 10, "move_speed": 3},
+    "Mage":    {"hp": 80,  "max_hp": 80,  "mp": 100, "max_mp": 100, "attack_power": 20, "gold": 10, "move_speed": 4},
+    "Rogue":   {"hp": 105, "max_hp": 105, "mp": 40,  "max_mp": 40,  "attack_power": 15, "gold": 50, "move_speed": 6},
 }
 
 ITEM_POOL = {
@@ -1426,6 +1426,33 @@ def update_cat_follow() -> None:
     cat_state["x"], cat_state["y"] = nx, ny
 
 
+def relocate_rescued_cat_to_player() -> None:
+    if not cat_state.get("rescued") and not cat_quest.get("rescued"):
+        return
+    player_x, player_y = player_state["x"], player_state["y"]
+    occupied = {(enemy["x"], enemy["y"]) for enemy in enemies}
+    if boss_entity:
+        occupied.add((boss_entity["x"], boss_entity["y"]))
+    cat_position = None
+    for x, y in ((player_x - 1, player_y), (player_x, player_y + 1),
+                 (player_x + 1, player_y), (player_x, player_y - 1)):
+        if not is_in_bounds(x, y) or (x, y) == (player_x, player_y) or (x, y) in occupied:
+            continue
+        tile = game_map[y][x]
+        if tile == WALL or tile == LASER_CAGE or (tile == SECRET_DOOR and not has_secret_key):
+            continue
+        cat_position = (x, y)
+        break
+    if cat_position is None:
+        return
+    cat_x, cat_y = cat_position
+    cat_state.update({"active": True, "rescued": True, "x": cat_x, "y": cat_y,
+                      "trail": [(player_x, player_y)] * 3})
+    if cat_quest.get("rescued"):
+        cat_quest["cat_x"], cat_quest["cat_y"] = cat_x, cat_y
+        cat_quest["history"] = [[player_x, player_y]] * 3
+
+
 @app.post("/api/unlock-cat")
 async def unlock_cat():
     require_class_selected()
@@ -2050,6 +2077,15 @@ def cat_attack_boss(logs: list) -> Optional[dict]:
 
 
 def build_status() -> dict:
+    now = datetime.now(timezone.utc).timestamp()
+    invisible_until = float(player_state.get("invisible_until", 0) or 0)
+    class_stats = CLASS_STATS.get(character_class, {})
+    base_attack = class_stats.get("attack_power", 0)
+    red_card_ready = bool(
+        cat_quest.get("has_red_key") or
+        (cat_state.get("active") and not cat_state.get("rescued")
+         and red_key.get("x", -1) >= 0 and not red_key.get("active"))
+    )
     base = {
         "class_selected": class_selected,
         "character_class": character_class,
@@ -2061,6 +2097,13 @@ def build_status() -> dict:
         "theme": "red" if cat_quest.get("in_red_map") else "station",
         "in_red_map": cat_quest.get("in_red_map", False),
         "cat_quest": cat_quest,
+        "red_card_ready": red_card_ready,
+        "status_effects": {
+            "invisibility": invisible_until > now,
+            "invisibility_seconds": max(0, int(invisible_until - now + 0.999)),
+            "haste": False,
+            "haste_seconds": 0,
+        },
         "red_hatch_pos": dict(red_hatch_pos),
         "can_enter_red_map": is_at_red_hatch(),
         "can_exit_red_map": is_at_red_exit(),
@@ -2088,6 +2131,8 @@ def build_status() -> dict:
             "at_merchant": False, "at_stairs": False,
             "game_over": False,
             "pending_level_ups": 0, "level_up_choices": LEVEL_UP_CHOICES,
+            "character_stats": {"attack_base": 0, "attack_bonus": 0, "defense": 0,
+                                "crit_chance": 0, "move_speed": 0, "speed_multiplier": 0},
             "daily_quest": get_daily_quest_status() if daily_quest else {},
             "inventory": [], "equipment": equipment,
             "authenticated": bool(current_user_id),
@@ -2105,6 +2150,14 @@ def build_status() -> dict:
         "exp_to_next": player_state["exp_to_next"],
         "attack_power": player_state["attack_power"],
         "damage_reduction": player_state["damage_reduction"],
+        "character_stats": {
+            "attack_base": base_attack,
+            "attack_bonus": player_state["attack_power"] - base_attack,
+            "defense": player_state["damage_reduction"],
+            "crit_chance": 0,
+            "move_speed": class_stats.get("move_speed", 0),
+            "speed_multiplier": round(class_stats.get("move_speed", 0) / 3, 2),
+        },
         "x": player_state["x"], "y": player_state["y"],
         "map": game_map,
         "fog_matrix": [row[:] for row in fog_matrix],
@@ -2401,6 +2454,7 @@ async def use_stairs():
     destination = stairs_positions[next_index]
     logs = []
     player_state["x"], player_state["y"] = destination["x"], destination["y"]
+    relocate_rescued_cat_to_player()
     update_fog(player_state["x"], player_state["y"])
     logs.append({"type": "info", "message": f"Merdiven {next_index + 1}'e ışınlandın!"})
     return {**build_status(), "success": True, "message": "Merdiven kullanıldı",
